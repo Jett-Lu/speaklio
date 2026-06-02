@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="Speaklio is a voice-first personal care dashboard."
+    />
+    <title>Speaklio - Your day, in one place</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 40 40" fill="none">
+              <path d="M20 7.5c-7 0-12 4.55-12 10.5 0 3.36 1.67 6.32 4.35 8.24L11 31.8l5.64-3.24c1.07.28 2.2.44 3.36.44 7 0 12-4.55 12-10.5S27 7.5 20 7.5Z" fill="currentColor"/>
+              <path d="M15.2 19.5h9.6M17.4 15.8h5.2M17.4 23.2h5.2" stroke="white" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <span>Speaklio</span>
+        </div>
+
+        <nav class="side-nav" aria-label="Main navigation">
+          <button class="nav-item active" data-view="home">
+            <span class="icon" data-icon="home"></span>
+            <span>Today</span>
+          </button>
+          <button class="nav-item" data-view="activity">
+            <span class="icon" data-icon="clock"></span>
+            <span>Activity</span>
+          </button>
+          <button class="nav-item" data-view="plugins">
+            <span class="icon" data-icon="grid"></span>
+            <span>Plugins</span>
+          </button>
+          <button class="nav-item" data-view="profile">
+            <span class="icon" data-icon="user"></span>
+            <span>Profile</span>
+          </button>
+        </nav>
+
+        <div class="sidebar-bottom">
+          <div class="mini-profile">
+            <div class="avatar">JM</div>
+            <div>
+              <strong>Jordan Miller</strong>
+              <span>Free plan</span>
+            </div>
+          </div>
+          <button class="icon-button" aria-label="Settings">
+            <span class="icon" data-icon="settings"></span>
+          </button>
+        </div>
+      </aside>
+
+      <main class="main-content">
+        <header class="mobile-header">
+          <div class="brand">
+            <div class="brand-mark" aria-hidden="true">
+              <svg viewBox="0 0 40 40" fill="none">
+                <path d="M20 7.5c-7 0-12 4.55-12 10.5 0 3.36 1.67 6.32 4.35 8.24L11 31.8l5.64-3.24c1.07.28 2.2.44 3.36.44 7 0 12-4.55 12-10.5S27 7.5 20 7.5Z" fill="currentColor"/>
+                <path d="M15.2 19.5h9.6M17.4 15.8h5.2M17.4 23.2h5.2" stroke="white" stroke-width="2" stroke-linecap="round"/>
+              </svg>
+            </div>
+            <span>Speaklio</span>
+          </div>
+          <button class="avatar avatar-button" aria-label="Open profile" data-view-trigger="profile">JM</button>
+        </header>
+
+        <section class="view active" id="home-view">
+          <header class="page-heading home-heading">
+            <div>
+              <p class="eyebrow">MONDAY, JUNE 1</p>
+              <h1>Good evening, Jordan.</h1>
+              <p class="heading-copy">Here is a simple look at your day.</p>
+            </div>
+            <button class="quiet-button desktop-only">
+              <span class="icon" data-icon="calendar"></span>
+              <span>This week</span>
+              <span class="icon small" data-icon="chevron-down"></span>
+            </button>
+          </header>
+
+          <section class="daily-score">
+            <div class="score-copy">
+              <span class="status-dot"></span>
+              <div>
+                <p>YOUR DAILY BALANCE</p>
+                <h2>You are doing well today</h2>
+                <span>3 of 4 daily goals are on track.</span>
+              </div>
+            </div>
+            <div class="score-ring" aria-label="Daily balance score 82">
+              <svg viewBox="0 0 80 80" aria-hidden="true">
+                <circle cx="40" cy="40" r="32" pathLength="100"></circle>
+                <circle class="progress" cx="40" cy="40" r="32" pathLength="100"></circle>
+              </svg>
+              <strong>82</strong>
+            </div>
+          </section>
+
+          <div class="section-title-row">
+            <div>
+              <p class="eyebrow">YOUR DAY</p>
+              <h2>Today's overview</h2>
+            </div>
+            <button class="text-button" data-view-trigger="plugins">Edit plugins</button>
+          </div>
+
+          <section class="overview-grid" id="overview-grid">
+            <article class="metric-card nutrition-card" data-plugin-card="nutrition">
+              <div class="card-header">
+                <span class="plugin-icon nutrition"><span class="icon" data-icon="apple"></span></span>
+                <span class="card-label">NUTRITION</span>
+                <button class="more-button" aria-label="Nutrition options">...</button>
+              </div>
+              <div class="metric-primary">
+                <div>
+                  <strong id="calorie-count">1,420</strong>
+                  <span>of 2,100 cal</span>
+                </div>
+                <div class="mini-ring nutrition-ring" aria-label="68 percent of calorie goal">
+                  <svg viewBox="0 0 54 54" aria-hidden="true">
+                    <circle cx="27" cy="27" r="21" pathLength="100"></circle>
+                    <circle class="progress" id="nutrition-ring" cx="27" cy="27" r="21" pathLength="100"></circle>
+                  </svg>
+                  <span id="nutrition-percent">68%</span>
+                </div>
+              </div>
+              <div class="macro-row">
+                <span><b>72g</b> protein</span>
+                <span><b>164g</b> carbs</span>
+                <span><b>54g</b> fats</span>
+              </div>
+            </article>
+
+            <article class="metric-card finance-card" data-plugin-card="finance">
+              <div class="card-header">
+                <span class="plugin-icon finance"><span class="icon" data-icon="wallet"></span></span>
+                <span class="card-label">FINANCE</span>
+                <button class="more-button" aria-label="Finance options">...</button>
+              </div>
+              <div class="metric-primary">
+                <div>
+                  <strong id="spending-count">$1,264</strong>
+                  <span>spent this month</span>
+                </div>
+                <span class="trend positive">12% under</span>
+              </div>
+              <div class="progress-bar">
+                <span id="finance-progress"></span>
+              </div>
+              <div class="card-footer">
+                <span>Monthly budget</span>
+                <strong id="budget-left">$736 left</strong>
+              </div>
+            </article>
+
+            <article class="metric-card sleep-card" data-plugin-card="sleep">
+              <div class="card-header">
+                <span class="plugin-icon sleep"><span class="icon" data-icon="moon"></span></span>
+                <span class="card-label">SLEEP</span>
+                <button class="more-button" aria-label="Sleep options">...</button>
+              </div>
+              <div class="metric-primary">
+                <div>
+                  <strong>7h 42m</strong>
+                  <span>last night</span>
+                </div>
+                <span class="quality-badge">Good</span>
+              </div>
+              <div class="sleep-bars" aria-label="Weekly sleep chart">
+                <span style="height: 54%"></span>
+                <span style="height: 68%"></span>
+                <span style="height: 80%"></span>
+                <span style="height: 61%"></span>
+                <span style="height: 74%"></span>
+                <span style="height: 85%"></span>
+                <span class="today" style="height: 77%"></span>
+              </div>
+              <div class="days-row">
+                <span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span><span>S</span>
+              </div>
+            </article>
+
+            <article class="metric-card workout-card" data-plugin-card="workout">
+              <div class="card-header">
+                <span class="plugin-icon workout"><span class="icon" data-icon="bolt"></span></span>
+                <span class="card-label">WORKOUT</span>
+                <button class="more-button" aria-label="Workout options">...</button>
+              </div>
+              <div class="workout-next">
+                <div>
+                  <strong id="workout-title">Upper body strength</strong>
+                  <span id="workout-time">Tomorrow, 7:30 AM</span>
+                </div>
+                <button class="round-action" aria-label="View workout">
+                  <span class="icon" data-icon="arrow-right"></span>
+                </button>
+              </div>
+              <div class="card-footer">
+                <span>Weekly goal</span>
+                <strong>3 of 4 sessions</strong>
+              </div>
+            </article>
+
+            <article class="metric-card hydration-card" data-plugin-card="hydration" hidden>
+              <div class="card-header">
+                <span class="plugin-icon hydration"><span class="icon" data-icon="droplet"></span></span>
+                <span class="card-label">HYDRATION</span>
+                <button class="more-button" aria-label="Hydration options">...</button>
+              </div>
+              <div class="metric-primary">
+                <div>
+                  <strong>1.4 L</strong>
+                  <span>of 2.5 L today</span>
+                </div>
+                <span class="trend hydration-trend">56%</span>
+              </div>
+              <div class="progress-bar hydration-progress">
+                <span></span>
+              </div>
+              <div class="card-footer">
+                <span>Daily goal</span>
+                <strong>1.1 L left</strong>
+              </div>
+            </article>
+
+            <article class="metric-card mindfulness-card" data-plugin-card="mindfulness" hidden>
+              <div class="card-header">
+                <span class="plugin-icon mindfulness"><span class="icon" data-icon="heart"></span></span>
+                <span class="card-label">MINDFULNESS</span>
+                <button class="more-button" aria-label="Mindfulness options">...</button>
+              </div>
+              <div class="workout-next">
+                <div>
+                  <strong>Evening reset</strong>
+                  <span>10-minute guided breathing</span>
+                </div>
+                <button class="round-action mindfulness-action" aria-label="Start mindfulness session">
+                  <span class="icon" data-icon="arrow-right"></span>
+                </button>
+              </div>
+              <div class="card-footer">
+                <span>This week</span>
+                <strong>3 mindful moments</strong>
+              </div>
+            </article>
+          </section>
+
+          <section class="recent-section">
+            <div class="section-title-row compact">
+              <div>
+                <p class="eyebrow">LATEST</p>
+                <h2>Recent activity</h2>
+              </div>
+              <button class="text-button" data-view-trigger="activity">See all</button>
+            </div>
+            <div class="activity-list" id="home-activity-list"></div>
+          </section>
+        </section>
+
+        <section class="view" id="activity-view">
+          <header class="page-heading">
+            <div>
+              <p class="eyebrow">HISTORY</p>
+              <h1>Your activity</h1>
+              <p class="heading-copy">Everything Speaklio has logged for you.</p>
+            </div>
+          </header>
+          <div class="filter-row" role="tablist" aria-label="Activity filters">
+            <button class="filter-chip active" data-filter="all">All</button>
+            <button class="filter-chip" data-filter="nutrition">Nutrition</button>
+            <button class="filter-chip" data-filter="finance">Finance</button>
+            <button class="filter-chip" data-filter="sleep">Sleep</button>
+            <button class="filter-chip" data-filter="workout">Workout</button>
+          </div>
+          <div class="timeline" id="activity-timeline"></div>
+        </section>
+
+        <section class="view" id="plugins-view">
+          <header class="page-heading">
+            <div>
+              <p class="eyebrow">MAKE IT YOURS</p>
+              <h1>Plugin store</h1>
+              <p class="heading-copy">Choose the parts of life you want Speaklio to help with.</p>
+            </div>
+          </header>
+          <div class="store-note">
+            <span class="icon" data-icon="sparkles"></span>
+            <p><strong>Build your own dashboard.</strong> Add or remove a plugin anytime. Your home view stays focused on what matters to you.</p>
+          </div>
+          <section class="plugin-store-grid" id="plugin-store-grid"></section>
+        </section>
+
+        <section class="view" id="profile-view">
+          <header class="page-heading">
+            <div>
+              <p class="eyebrow">YOUR ACCOUNT</p>
+              <h1>Profile</h1>
+              <p class="heading-copy">Manage your Speaklio experience.</p>
+            </div>
+          </header>
+          <section class="profile-card">
+            <div class="large-avatar">JM</div>
+            <div>
+              <h2>Jordan Miller</h2>
+              <p>jordan@example.com</p>
+            </div>
+            <button class="quiet-button">Edit profile</button>
+          </section>
+          <section class="settings-list">
+            <button>
+              <span class="setting-icon"><span class="icon" data-icon="bell"></span></span>
+              <span><strong>Notifications</strong><small>Daily reminders and insights</small></span>
+              <span class="icon" data-icon="chevron-right"></span>
+            </button>
+            <button>
+              <span class="setting-icon"><span class="icon" data-icon="shield"></span></span>
+              <span><strong>Privacy and data</strong><small>Control how your information is used</small></span>
+              <span class="icon" data-icon="chevron-right"></span>
+            </button>
+            <button>
+              <span class="setting-icon"><span class="icon" data-icon="settings"></span></span>
+              <span><strong>Preferences</strong><small>Customize your dashboard</small></span>
+              <span class="icon" data-icon="chevron-right"></span>
+            </button>
+          </section>
+        </section>
+      </main>
+
+      <aside class="assistant-panel" id="assistant-panel" aria-label="Speaklio assistant">
+        <header class="assistant-header">
+          <div>
+            <p class="eyebrow">AI ASSISTANT</p>
+            <h2>Ask Speaklio</h2>
+          </div>
+          <button class="icon-button assistant-close" id="close-assistant" aria-label="Close assistant">
+            <span class="icon" data-icon="x"></span>
+          </button>
+        </header>
+        <div class="assistant-status">
+          <span class="status-dot"></span>
+          <span>Ready to help</span>
+        </div>
+        <div class="chat-stream" id="chat-stream">
+          <div class="chat-day">TODAY</div>
+          <div class="chat-bubble assistant">
+            <div class="bot-mark"><span class="icon" data-icon="sparkles"></span></div>
+            <p>Hi Jordan. Tell me what you ate, spent, or want to plan.</p>
+          </div>
+        </div>
+        <div class="suggestion-area">
+          <p>TRY SAYING</p>
+          <div class="suggestion-list">
+            <button class="suggestion-chip">I spent $25 on lunch</button>
+            <button class="suggestion-chip">How did I sleep last night?</button>
+            <button class="suggestion-chip">Plan a workout for tomorrow</button>
+          </div>
+        </div>
+        <form class="assistant-composer" id="assistant-form">
+          <label class="sr-only" for="assistant-input">Ask Speaklio anything</label>
+          <input id="assistant-input" type="text" placeholder="Ask Speaklio anything..." autocomplete="off" />
+          <button type="button" class="mic-button" id="mic-button" aria-label="Simulate voice input">
+            <span class="icon" data-icon="mic"></span>
+          </button>
+          <button type="submit" class="send-button" aria-label="Send message">
+            <span class="icon" data-icon="arrow-up"></span>
+          </button>
+        </form>
+      </aside>
+
+      <button class="mobile-assistant-dock" id="open-assistant">
+        <span class="dock-spark"><span class="icon" data-icon="sparkles"></span></span>
+        <span>Ask Speaklio anything...</span>
+        <span class="dock-mic"><span class="icon" data-icon="mic"></span></span>
+      </button>
+
+      <nav class="bottom-nav" aria-label="Mobile navigation">
+        <button class="nav-item active" data-view="home">
+          <span class="icon" data-icon="home"></span>
+          <span>Today</span>
+        </button>
+        <button class="nav-item" data-view="activity">
+          <span class="icon" data-icon="clock"></span>
+          <span>Activity</span>
+        </button>
+        <button class="nav-item" data-view="plugins">
+          <span class="icon" data-icon="grid"></span>
+          <span>Plugins</span>
+        </button>
+        <button class="nav-item" data-view="profile">
+          <span class="icon" data-icon="user"></span>
+          <span>Profile</span>
+        </button>
+      </nav>
+
+      <div class="toast" id="toast" role="status" aria-live="polite"></div>
+      <div class="overlay" id="overlay"></div>
+    </div>
+    <script src="app.js"></script>
+  </body>
+</html>
