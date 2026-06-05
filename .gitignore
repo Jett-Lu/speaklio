@@ -1,0 +1,16 @@
+﻿*.gguf
+*.bin
+*.safetensors
+models/
+ollama/
+.cache/
+.env
+.env.local
+*.db
+*.sqlite
+*.wav
+*.mp3
+*.m4a
+__pycache__/
+.venv/
+node_modules/
