@@ -1,10 +1,10 @@
 # Speaklio Backend
 
-This is the planned Speaklio backend service. It is an Express + TypeScript API for workflows that should not run directly in the browser or a future mobile app.
+This is the Speaklio backend service. It is an Express + TypeScript API for workflows that should not run directly in the browser or a future mobile app.
 
-## Planned Stack
+## Stack
 
-- Node.js
+- Node.js 24+
 - Express
 - TypeScript
 - Supabase Auth
@@ -25,11 +25,19 @@ Ordinary user-owned data may still be read or written directly through Supabase 
 
 ## Current Status
 
-Initial scaffold created. See `../BACKEND_BRAINSTORM.md` for planning notes.
+Initial scaffold created and verified. See `../BACKEND_BRAINSTORM.md` for planning notes.
 
 The Supabase project structure has been initialized at `../supabase/`, including the first schema migration and seed data.
 
+Current routes:
+
+- `GET /`
+- `GET /health`
+- `GET /health/supabase`
+
 ## Setup
+
+Use Node.js 24 or newer.
 
 Install dependencies from the repo root:
 
@@ -47,6 +55,8 @@ npm run supabase:status
 ```
 
 Use the local Project URL as `SUPABASE_URL` and the local Secret key as `SUPABASE_SECRET_KEY`.
+
+Example local values should come from your own `npm run supabase:status` output, not from committed files or chat history.
 
 ## Commands
 
@@ -73,6 +83,16 @@ npm run start
 - `GET /` - basic API metadata.
 - `GET /health` - backend health check.
 - `GET /health/supabase` - verifies the backend can query Supabase.
+
+Expected local response from `GET /health/supabase`:
+
+```json
+{
+  "status": "ok",
+  "service": "supabase",
+  "pluginCount": 6
+}
+```
 
 ## Early Implementation Notes
 

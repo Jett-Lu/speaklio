@@ -2,14 +2,44 @@
 
 Speaklio is a voice-first personal care dashboard for turning natural language into structured updates across modular tracking areas.
 
-This repository is being organized as a small capstone monorepo. The current frontend is a static prototype, and the planned backend direction is Express + TypeScript with Supabase for auth and database.
+This repository is organized as a small capstone monorepo. The current frontend is a static prototype, the backend is an Express + TypeScript scaffold, and Supabase provides auth/database infrastructure.
+
+Use Node.js 24 or newer for local development.
+
+## Requirements
+
+- Node.js 24 or newer.
+- Docker Desktop for local Supabase.
+- Supabase CLI, installed through the root `package.json`.
 
 ## Repository Structure
 
 - `frontend/` - current static dashboard prototype.
-- `backend/` - planned Express + TypeScript API service.
+- `backend/` - Express + TypeScript API service.
 - `supabase/` - local Supabase config, migrations, and seed data.
 - `BACKEND_BRAINSTORM.md` - temporary backend planning notes.
+
+## First-Time Setup
+
+Install root and backend dependencies:
+
+```powershell
+npm install
+npm install --prefix backend
+```
+
+Start local Supabase:
+
+```powershell
+npm run supabase:start
+npm run supabase:db:reset
+```
+
+Create a local `.env` from `.env.example`, then fill in Supabase values from:
+
+```powershell
+npm run supabase:status
+```
 
 ## Project Areas
 
@@ -19,21 +49,15 @@ The current frontend is a mobile-first static prototype using plain HTML, CSS, a
 
 See `frontend/README.md` for preview instructions and feature notes.
 
+Useful command:
+
+```powershell
+npm run frontend:dev
+```
+
 ### Backend
 
-The backend is an Express + TypeScript service for privileged workflows and Supabase for auth, Postgres, and Row Level Security.
-
-See `backend/README.md` for the backend plan.
-
-## Current Planning Assumptions
-
-- Start with personal tracking.
-- Use Supabase for auth and database.
-- Use a small Express + TypeScript backend for secrets, AI/LLM workflows, account deletion, and other privileged operations.
-- Keep raw audio transient for the initial LLM query flow.
-- Keep the frontend/mobile choice flexible.
-
-## Backend
+The backend is an Express + TypeScript service for privileged workflows such as AI/LLM requests, account deletion, and operations that require secret keys.
 
 Useful commands:
 
@@ -43,11 +67,17 @@ npm run backend:typecheck
 npm run backend:build
 ```
 
-The backend expects Supabase values in a local `.env` file. Use `.env.example` as the safe template.
+See `backend/README.md` for details.
+
+## Current Planning Assumptions
+
+- Start with personal tracking.
+- Use Supabase for auth and database.
+- Use a small Express + TypeScript backend for secrets, AI/LLM workflows, account deletion, and other privileged operations.
+- Keep raw audio transient for the initial LLM query flow.
+- Keep the frontend/mobile choice flexible.
 
 ## Local Supabase
-
-The Supabase CLI is installed as a root dev dependency. Local Supabase development requires Docker or a Docker-compatible runtime.
 
 Useful commands:
 
@@ -63,7 +93,9 @@ The first schema migration lives in `supabase/migrations/`, and default plugin d
 
 The `supabase:psql` script opens `psql` inside the local Supabase Postgres container, so a separate local PostgreSQL client install is not required.
 
-To connect this repo to the shared cloud project later:
+## Cloud Supabase
+
+This repo has been linked to the shared Supabase cloud project. If a teammate needs to link their local checkout:
 
 ```powershell
 npx supabase login
@@ -75,4 +107,11 @@ After linking, push migrations and seed default data:
 ```powershell
 npm run supabase:db:push
 npm run supabase:seed:remote
+```
+
+## Verification
+
+```powershell
+npm run backend:typecheck
+npm run backend:build
 ```
