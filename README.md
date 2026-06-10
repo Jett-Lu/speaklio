@@ -42,15 +42,25 @@ Useful commands:
 ```powershell
 npm run supabase:start
 npm run supabase:status
+npm run supabase:psql
 npm run supabase:db:reset
 npm run supabase:stop
 ```
 
 The first schema migration lives in `supabase/migrations/`, and default plugin data lives in `supabase/seed.sql`.
 
+The `supabase:psql` script opens `psql` inside the local Supabase Postgres container, so a separate local PostgreSQL client install is not required.
+
 To connect this repo to the shared cloud project later:
 
 ```powershell
 npx supabase login
 npx supabase link --project-ref <project-ref>
+```
+
+After linking, push migrations and seed default data:
+
+```powershell
+npm run supabase:db:push
+npm run supabase:seed:remote
 ```
