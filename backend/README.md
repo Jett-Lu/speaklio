@@ -25,9 +25,14 @@ Ordinary user-owned data may still be read or written directly through Supabase 
 
 ## Current Status
 
-Initial scaffold created and verified. See `../BACKEND_BRAINSTORM.md` for planning notes.
+Initial scaffold created and verified. See `../docs/BACKEND_BRAINSTORM.md` for planning notes.
 
 The Supabase project structure has been initialized at `../supabase/`, including the first schema migration and seed data.
+
+Auth design and manual testing notes:
+
+- `../docs/auth-architecture.md`
+- `../docs/auth-testing.md`
 
 Current routes:
 

@@ -17,7 +17,7 @@ Use Node.js 24 or newer for local development.
 - `frontend/` - current static dashboard prototype.
 - `backend/` - Express + TypeScript API service.
 - `supabase/` - local Supabase config, migrations, and seed data.
-- `BACKEND_BRAINSTORM.md` - temporary backend planning notes.
+- `docs/` - architecture notes, testing guides, and temporary planning docs.
 
 ## First-Time Setup
 
@@ -71,6 +71,11 @@ npm run backend:build
 
 See `backend/README.md` for details.
 
+Auth docs:
+
+- `docs/auth-architecture.md`
+- `docs/auth-testing.md`
+
 ## Current Planning Assumptions
 
 - Start with personal tracking.
@@ -78,6 +83,8 @@ See `backend/README.md` for details.
 - Use a small Express + TypeScript backend for secrets, AI/LLM workflows, account deletion, and other privileged operations.
 - Keep raw audio transient for the initial LLM query flow.
 - Keep the frontend/mobile choice flexible.
+
+See `docs/BACKEND_BRAINSTORM.md` for the working backend planning notes.
 
 ## Local Supabase
 
