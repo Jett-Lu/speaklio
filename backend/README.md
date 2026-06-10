@@ -34,6 +34,7 @@ Current routes:
 - `GET /`
 - `GET /health`
 - `GET /health/supabase`
+- `GET /me`
 
 ## Setup
 
@@ -83,6 +84,7 @@ npm run start
 - `GET /` - basic API metadata.
 - `GET /health` - backend health check.
 - `GET /health/supabase` - verifies the backend can query Supabase.
+- `GET /me` - verifies a Supabase access token and returns the current user plus profile.
 
 Expected local response from `GET /health/supabase`:
 
@@ -91,6 +93,33 @@ Expected local response from `GET /health/supabase`:
   "status": "ok",
   "service": "supabase",
   "pluginCount": 6
+}
+```
+
+`GET /me` requires a Supabase access token:
+
+```http
+Authorization: Bearer <supabase-access-token>
+```
+
+Expected response shape:
+
+```json
+{
+  "user": {
+    "id": "user-id",
+    "email": "user@example.com",
+    "createdAt": "2026-06-10T00:00:00.000Z"
+  },
+  "profile": {
+    "id": "user-id",
+    "display_name": null,
+    "email": "user@example.com",
+    "avatar_url": null,
+    "timezone": "America/Toronto",
+    "created_at": "2026-06-10T00:00:00.000Z",
+    "updated_at": "2026-06-10T00:00:00.000Z"
+  }
 }
 ```
 
