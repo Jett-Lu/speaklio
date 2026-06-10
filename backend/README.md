@@ -35,6 +35,7 @@ Current routes:
 - `GET /health`
 - `GET /health/supabase`
 - `GET /me`
+- `PATCH /me/profile`
 
 ## Setup
 
@@ -85,6 +86,7 @@ npm run start
 - `GET /health` - backend health check.
 - `GET /health/supabase` - verifies the backend can query Supabase.
 - `GET /me` - verifies a Supabase access token and returns the current user plus profile.
+- `PATCH /me/profile` - updates editable fields on the current user's profile.
 
 Expected local response from `GET /health/supabase`:
 
@@ -122,6 +124,18 @@ Expected response shape:
   }
 }
 ```
+
+`PATCH /me/profile` requires the same bearer token and accepts one or more editable fields:
+
+```json
+{
+  "displayName": "Jordan Miller",
+  "timezone": "America/Toronto",
+  "avatarUrl": null
+}
+```
+
+The API uses camelCase request fields. The database keeps snake_case column names.
 
 ## Early Implementation Notes
 

@@ -59,7 +59,7 @@ npm run frontend:dev
 
 The backend is an Express + TypeScript service for privileged workflows such as AI/LLM requests, account deletion, and operations that require secret keys.
 
-Current backend routes include health checks and `GET /me`, which verifies a Supabase bearer token and returns the current user's profile.
+Current backend routes include health checks, `GET /me`, and `PATCH /me/profile`.
 
 Useful commands:
 
