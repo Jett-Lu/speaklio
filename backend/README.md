@@ -27,6 +27,8 @@ Ordinary user-owned data may still be read or written directly through Supabase 
 
 Not implemented yet. See `../BACKEND_BRAINSTORM.md` for planning notes.
 
+The Supabase project structure has been initialized at `../supabase/`, including the first schema migration and seed data.
+
 ## Early Implementation Notes
 
 - Do not expose Supabase secret/service keys to frontend or mobile code.

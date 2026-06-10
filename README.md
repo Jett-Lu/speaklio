@@ -8,6 +8,7 @@ This repository is being organized as a small capstone monorepo. The current fro
 
 - `frontend/` - current static dashboard prototype.
 - `backend/` - planned Express + TypeScript API service.
+- `supabase/` - local Supabase config, migrations, and seed data.
 - `BACKEND_BRAINSTORM.md` - temporary backend planning notes.
 
 ## Project Areas
@@ -31,3 +32,25 @@ See `backend/README.md` for the backend plan.
 - Use a small Express + TypeScript backend for secrets, AI/LLM workflows, account deletion, and other privileged operations.
 - Keep raw audio transient for the initial LLM query flow.
 - Keep the frontend/mobile choice flexible.
+
+## Local Supabase
+
+The Supabase CLI is installed as a root dev dependency. Local Supabase development requires Docker or a Docker-compatible runtime.
+
+Useful commands:
+
+```powershell
+npm run supabase:start
+npm run supabase:status
+npm run supabase:db:reset
+npm run supabase:stop
+```
+
+The first schema migration lives in `supabase/migrations/`, and default plugin data lives in `supabase/seed.sql`.
+
+To connect this repo to the shared cloud project later:
+
+```powershell
+npx supabase login
+npx supabase link --project-ref <project-ref>
+```
