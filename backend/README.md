@@ -1,6 +1,6 @@
 # Speaklio Backend
 
-This directory is reserved for the planned Speaklio backend service.
+This is the planned Speaklio backend service. It is an Express + TypeScript API for workflows that should not run directly in the browser or a future mobile app.
 
 ## Planned Stack
 
@@ -25,9 +25,54 @@ Ordinary user-owned data may still be read or written directly through Supabase 
 
 ## Current Status
 
-Not implemented yet. See `../BACKEND_BRAINSTORM.md` for planning notes.
+Initial scaffold created. See `../BACKEND_BRAINSTORM.md` for planning notes.
 
 The Supabase project structure has been initialized at `../supabase/`, including the first schema migration and seed data.
+
+## Setup
+
+Install dependencies from the repo root:
+
+```powershell
+npm install
+npm install --prefix backend
+```
+
+Create a local `.env` file from `../.env.example` or `backend/.env.example`.
+
+For local Supabase values, run:
+
+```powershell
+npm run supabase:status
+```
+
+Use the local Project URL as `SUPABASE_URL` and the local Secret key as `SUPABASE_SECRET_KEY`.
+
+## Commands
+
+From the repo root:
+
+```powershell
+npm run backend:dev
+npm run backend:typecheck
+npm run backend:build
+npm run backend:start
+```
+
+From this directory:
+
+```powershell
+npm run dev
+npm run typecheck
+npm run build
+npm run start
+```
+
+## Routes
+
+- `GET /` - basic API metadata.
+- `GET /health` - backend health check.
+- `GET /health/supabase` - verifies the backend can query Supabase.
 
 ## Early Implementation Notes
 

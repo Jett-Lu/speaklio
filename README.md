@@ -21,7 +21,7 @@ See `frontend/README.md` for preview instructions and feature notes.
 
 ### Backend
 
-The backend has not been implemented yet. The current plan is to use an Express + TypeScript service for privileged workflows and Supabase for auth, Postgres, and Row Level Security.
+The backend is an Express + TypeScript service for privileged workflows and Supabase for auth, Postgres, and Row Level Security.
 
 See `backend/README.md` for the backend plan.
 
@@ -32,6 +32,18 @@ See `backend/README.md` for the backend plan.
 - Use a small Express + TypeScript backend for secrets, AI/LLM workflows, account deletion, and other privileged operations.
 - Keep raw audio transient for the initial LLM query flow.
 - Keep the frontend/mobile choice flexible.
+
+## Backend
+
+Useful commands:
+
+```powershell
+npm run backend:dev
+npm run backend:typecheck
+npm run backend:build
+```
+
+The backend expects Supabase values in a local `.env` file. Use `.env.example` as the safe template.
 
 ## Local Supabase
 

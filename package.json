@@ -4,6 +4,10 @@
   "private": true,
   "description": "Speaklio capstone monorepo.",
   "scripts": {
+    "backend:dev": "npm --prefix backend run dev",
+    "backend:build": "npm --prefix backend run build",
+    "backend:typecheck": "npm --prefix backend run typecheck",
+    "backend:start": "npm --prefix backend run start",
     "frontend:dev": "node frontend/server.js",
     "supabase:start": "supabase start",
     "supabase:stop": "supabase stop",
