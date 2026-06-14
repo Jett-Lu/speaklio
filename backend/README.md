@@ -37,6 +37,7 @@ Auth design and manual testing notes:
 Current routes:
 
 - `GET /`
+- `POST /assistant/parse`
 - `GET /health`
 - `GET /health/supabase`
 - `GET /me`
@@ -88,10 +89,41 @@ npm run start
 ## Routes
 
 - `GET /` - basic API metadata.
+- `POST /assistant/parse` - parses one assistant command through local Ollama.
 - `GET /health` - backend health check.
 - `GET /health/supabase` - verifies the backend can query Supabase.
 - `GET /me` - verifies a Supabase access token and returns the current user plus profile.
 - `PATCH /me/profile` - updates editable fields on the current user's profile.
+
+`POST /assistant/parse` does not require Supabase. It expects local Ollama to be running with the `speaklio-parser` model:
+
+```http
+POST /assistant/parse
+Content-Type: application/json
+
+{
+  "text": "log leg curls 20 kg 3 sets"
+}
+```
+
+Expected response shape:
+
+```json
+{
+  "actions": [
+    {
+      "type": "log_workout",
+      "confidence": 1,
+      "exercise": "leg curls",
+      "sets": 3,
+      "load": 20,
+      "load_unit": "kg"
+    }
+  ],
+  "needs_confirmation": false,
+  "message": null
+}
+```
 
 Expected local response from `GET /health/supabase`:
 

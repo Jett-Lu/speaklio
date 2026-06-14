@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { supabaseAdmin } from "../services/supabase.js";
+import { getSupabaseAdmin, hasSupabaseConfig } from "../services/supabase.js";
 
 export const healthRouter = Router();
 
@@ -12,6 +12,16 @@ healthRouter.get("/", (_request, response) => {
 
 healthRouter.get("/supabase", async (_request, response, next) => {
   try {
+    if (!hasSupabaseConfig()) {
+      response.status(503).json({
+        status: "error",
+        service: "supabase",
+        message: "Supabase is not configured",
+      });
+      return;
+    }
+
+    const supabaseAdmin = getSupabaseAdmin();
     const { count, error } = await supabaseAdmin
       .from("plugins")
       .select("id", { count: "exact", head: true });

@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { requireAuth, type AuthenticatedRequest } from "../middleware/auth.js";
-import { supabaseAdmin } from "../services/supabase.js";
+import { getSupabaseAdmin } from "../services/supabase.js";
 
 export const meRouter = Router();
 
@@ -17,6 +17,7 @@ meRouter.get("/", requireAuth, async (request, response, next) => {
   try {
     const authenticatedRequest = request as AuthenticatedRequest;
     const { user } = authenticatedRequest;
+    const supabaseAdmin = getSupabaseAdmin();
 
     const { data: profile, error } = await supabaseAdmin
       .from("profiles")
@@ -59,6 +60,7 @@ meRouter.patch("/profile", requireAuth, async (request, response, next) => {
 
     const authenticatedRequest = request as AuthenticatedRequest;
     const { user } = authenticatedRequest;
+    const supabaseAdmin = getSupabaseAdmin();
     const updates = {
       ...(parsed.data.displayName !== undefined ? { display_name: parsed.data.displayName } : {}),
       ...(parsed.data.timezone !== undefined ? { timezone: parsed.data.timezone } : {}),

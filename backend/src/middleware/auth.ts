@@ -1,6 +1,6 @@
 import type { NextFunction, Request, Response } from "express";
 import type { User } from "@supabase/supabase-js";
-import { supabaseAdmin } from "../services/supabase.js";
+import { getSupabaseAdmin } from "../services/supabase.js";
 
 export interface AuthenticatedRequest extends Request {
   user: User;
@@ -23,6 +23,7 @@ export async function requireAuth(request: Request, response: Response, next: Ne
     return;
   }
 
+  const supabaseAdmin = getSupabaseAdmin();
   const { data, error } = await supabaseAdmin.auth.getUser(accessToken);
 
   if (error || !data.user) {

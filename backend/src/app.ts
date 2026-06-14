@@ -1,5 +1,6 @@
 import cors from "cors";
 import express from "express";
+import { assistantRouter } from "./routes/assistant.js";
 import { healthRouter } from "./routes/health.js";
 import { meRouter } from "./routes/me.js";
 
@@ -16,6 +17,7 @@ export function createApp() {
     });
   });
 
+  app.use("/assistant", assistantRouter);
   app.use("/health", healthRouter);
   app.use("/me", meRouter);
 

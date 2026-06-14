@@ -1,4 +1,5 @@
 const STORAGE_KEY = "speaklio-offline-demo-v2";
+const API_BASE_URL = window.SPEAKLIO_API_BASE_URL || "http://localhost:3000";
 
 const iconPaths = {
   home: '<path d="M3 10.5 10 4l7 6.5"/><path d="M5 9.5V17h10V9.5"/><path d="M8.5 17v-5h3v5"/>',
@@ -651,12 +652,281 @@ function classifyExpense(text) {
   return "Other";
 }
 
-function processRequest(rawText) {
+function finiteNumber(value) {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function textValue(value) {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function joinParts(parts, separator = " - ") {
+  return parts.filter(Boolean).join(separator);
+}
+
+async function parseWithLocalAi(text) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 18000);
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/assistant/parse`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ text }),
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      throw new Error(`assistant request failed ${response.status}`);
+    }
+
+    return response.json();
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function answerDashboardQuestion(question) {
+  const lower = question.toLowerCase();
+
+  if (/(calorie|nutrition|macro|protein)/.test(lower)) {
+    if (!ensureInstalled("nutrition")) return null;
+    return `You are at ${state.nutrition.calories.toLocaleString()} of ${state.nutrition.goal.toLocaleString()} calories today, with ${state.nutrition.protein}g of protein.`;
+  }
+
+  if (/(spend|spent|budget|money|finance)/.test(lower)) {
+    if (!ensureInstalled("finance")) return null;
+    return `You have spent $${formatMoney(state.finance.spending)} of your $${formatMoney(state.finance.budget)} monthly budget.`;
+  }
+
+  if (/(sleep|slept|rest)/.test(lower)) {
+    if (!ensureInstalled("sleep")) return null;
+    return `You slept for ${formatMinutes(state.sleep.minutes)} last night. Your sleep quality was ${state.sleep.quality.toLowerCase()}.`;
+  }
+
+  if (/(water|hydrate|hydration)/.test(lower)) {
+    if (!ensureInstalled("hydration")) return null;
+    return `You are at ${(state.hydration.ml / 1000).toFixed(1)} L of your ${(state.hydration.goal / 1000).toFixed(1)} L water goal today.`;
+  }
+
+  return "I can answer dashboard questions about calories, spending, sleep, and hydration right now.";
+}
+
+function applyAiAction(action, originalText) {
+  const type = textValue(action?.type);
+
+  if (type === "log_workout") {
+    if (!ensureInstalled("workout")) return { handled: true, changed: false };
+    const exercise = textValue(action.exercise) || "workout";
+    const sets = finiteNumber(action.sets);
+    const reps = finiteNumber(action.reps);
+    const load = finiteNumber(action.load);
+    const duration = finiteNumber(action.duration_minutes);
+    const loadUnit = textValue(action.load_unit);
+    const detail = joinParts([
+      sets !== null ? `${sets} sets` : null,
+      reps !== null ? `${reps} reps` : null,
+      load !== null ? `${load}${loadUnit ? ` ${loadUnit}` : ""}` : null,
+      duration !== null ? `${duration} minutes` : null,
+      textValue(action.date),
+    ]);
+
+    addActivity({
+      plugin: "workout",
+      title: `Logged ${exercise}`,
+      detail: detail || "Workout logged",
+    });
+    showToast("Workout logged with local AI");
+    return { handled: true, changed: true, message: `Logged ${exercise}${detail ? ` (${detail})` : ""}.` };
+  }
+
+  if (type === "log_food") {
+    if (!ensureInstalled("nutrition")) return { handled: true, changed: false };
+    const food = textValue(action.food) || "food";
+    const quantity = textValue(action.quantity);
+    const meal = textValue(action.meal);
+    const calories = finiteNumber(action.calories);
+
+    if (calories !== null) {
+      state.nutrition.calories += calories;
+    }
+
+    addActivity({
+      plugin: "nutrition",
+      title: `Logged ${food}`,
+      detail: joinParts([
+        meal && meal !== "unknown" ? meal[0].toUpperCase() + meal.slice(1) : "Meal",
+        quantity,
+        calories !== null ? `${calories} cal` : "Calories not provided",
+      ]),
+    });
+    showToast("Food logged with local AI");
+    return {
+      handled: true,
+      changed: true,
+      message: calories !== null
+        ? `Logged ${food} at ${calories} calories.`
+        : `Logged ${food}. Add calories if you want the daily total updated.`,
+    };
+  }
+
+  if (type === "log_calories") {
+    if (!ensureInstalled("nutrition")) return { handled: true, changed: false };
+    const calories = finiteNumber(action.calories);
+    if (calories === null) {
+      return { handled: true, changed: false, message: "Tell me the calorie number and I can log it." };
+    }
+
+    state.nutrition.calories += calories;
+    const meal = textValue(action.meal);
+    addActivity({
+      plugin: "nutrition",
+      title: "Logged calories",
+      detail: joinParts([meal && meal !== "unknown" ? meal[0].toUpperCase() + meal.slice(1) : "Calories", `${calories} cal`]),
+    });
+    showToast("Calories logged with local AI");
+    return { handled: true, changed: true, message: `Logged ${calories} calories. Your daily total is now ${state.nutrition.calories.toLocaleString()} calories.` };
+  }
+
+  if (type === "log_weight") {
+    const weight = finiteNumber(action.weight);
+    const unit = textValue(action.weight_unit);
+    const date = textValue(action.date);
+    if (weight === null) {
+      return { handled: true, changed: false, message: "Tell me the weight number and unit, and I can log it." };
+    }
+
+    addActivity({
+      plugin: "profile",
+      title: "Logged body weight",
+      detail: joinParts([`${weight}${unit ? ` ${unit}` : ""}`, date]),
+    });
+    showToast("Weight logged with local AI");
+    return { handled: true, changed: true, message: `Logged your weight as ${weight}${unit ? ` ${unit}` : ""}${date ? ` for ${date}` : ""}.` };
+  }
+
+  if (type === "set_weight_goal") {
+    const targetWeight = finiteNumber(action.target_weight);
+    const unit = textValue(action.weight_unit);
+    const timeline = textValue(action.timeline);
+    if (targetWeight === null) {
+      return { handled: true, changed: false, message: "Tell me the target weight and I can save that goal." };
+    }
+
+    addActivity({
+      plugin: "profile",
+      title: "Updated weight goal",
+      detail: joinParts([`Target ${targetWeight}${unit ? ` ${unit}` : ""}`, timeline]),
+    });
+    showToast("Goal captured with local AI");
+    return { handled: true, changed: true, message: `Saved your target weight as ${targetWeight}${unit ? ` ${unit}` : ""}${timeline ? ` ${timeline}` : ""}.` };
+  }
+
+  if (type === "ask_dashboard_question") {
+    const answer = answerDashboardQuestion(textValue(action.question) || originalText);
+    return { handled: true, changed: false, message: answer };
+  }
+
+  if (type === "request_tip") {
+    return {
+      handled: true,
+      changed: false,
+      message: "A useful next step: log the exact numbers you know, and I will keep the dashboard totals honest instead of estimating.",
+    };
+  }
+
+  if (type === "request_macro_update") {
+    return {
+      handled: true,
+      changed: false,
+      message: "I can capture macro update requests, but macro target editing is not wired into this prototype yet.",
+    };
+  }
+
+  if (type === "set_profile") {
+    addActivity({
+      plugin: "profile",
+      title: "Captured profile update",
+      detail: "Profile details parsed by local AI",
+    });
+    return {
+      handled: true,
+      changed: true,
+      message: "I captured those profile details. The prototype does not have full profile fields for them yet.",
+    };
+  }
+
+  if (type === "unknown") {
+    return {
+      handled: true,
+      changed: false,
+      message: textValue(action.message) || "That is outside Speaklio's tracking scope right now.",
+    };
+  }
+
+  return { handled: false, changed: false };
+}
+
+function shouldUseOfflineFallback(result, text) {
+  const actions = Array.isArray(result?.actions) ? result.actions : [];
+  if (!actions.length || actions.some((action) => action?.type !== "unknown")) return false;
+
+  return shouldUseOfflineDemoFeature(text);
+}
+
+function shouldUseOfflineDemoFeature(text) {
+  return /(water|drank|hydrate|hydration|spent|expense|paid|bought|budget|spending|sleep|slept|last night|meditat|mindful|breathing)/.test(text.toLowerCase());
+}
+
+function applyAiResult(result, originalText) {
+  if (result?.needs_confirmation) {
+    addMessage(textValue(result.message) || "Can you add a little more detail before I log that?", "assistant");
+    return true;
+  }
+
+  if (!Array.isArray(result?.actions) || !result.actions.length) {
+    return false;
+  }
+
+  const messages = [];
+  let handled = false;
+  let changed = false;
+
+  result.actions.forEach((action) => {
+    const outcome = applyAiAction(action, originalText);
+    if (!outcome.handled) return;
+    handled = true;
+    changed ||= outcome.changed;
+    if (outcome.message) messages.push(outcome.message);
+  });
+
+  if (!handled) return false;
+  if (changed) {
+    saveState();
+    renderAll();
+  }
+  if (messages.length) addMessage(messages.join(" "), "assistant");
+  return true;
+}
+
+async function processRequest(rawText) {
   const text = rawText.trim();
   const lower = text.toLowerCase();
   if (!text) return;
   addMessage(text, "user");
   input.value = "";
+
+  if (!shouldUseOfflineDemoFeature(text)) {
+    try {
+      const result = await parseWithLocalAi(text);
+      if (!shouldUseOfflineFallback(result, text) && applyAiResult(result, text)) return;
+    } catch (error) {
+      console.warn("Local AI unavailable; using offline fallback.", error);
+      showToast("Local AI unavailable. Using offline fallback.");
+    }
+  }
 
   setTimeout(() => {
     const waterMatch = lower.match(/(\d+(?:\.\d+)?)\s*(ml|milliliters?|l|liters?)/);

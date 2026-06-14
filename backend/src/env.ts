@@ -14,8 +14,10 @@ const envSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   PORT: z.coerce.number().int().positive().default(3000),
   CORS_ORIGIN: z.string().default("http://localhost:4173"),
-  SUPABASE_URL: z.string().url(),
-  SUPABASE_SECRET_KEY: z.string().min(1),
+  OLLAMA_URL: z.string().url().default("http://localhost:11434"),
+  LOCAL_MODEL: z.string().min(1).default("speaklio-parser"),
+  SUPABASE_URL: z.string().url().optional(),
+  SUPABASE_SECRET_KEY: z.string().min(1).optional(),
 });
 
 export const env = envSchema.parse(process.env);

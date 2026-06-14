@@ -18,13 +18,37 @@ You can also run the server from this directory:
 node server.js
 ```
 
+## Local AI Preview
+
+To test the web assistant with local AI, start Ollama and make sure the `speaklio-parser` model exists:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\local_ai\setup.ps1
+```
+
+Then run the backend and frontend from the repository root:
+
+```powershell
+npm.cmd --prefix backend run build
+node .\backend\dist\server.js
+node .\frontend\server.js
+```
+
+Open `http://localhost:4173` and try:
+
+```text
+log leg curls 20 kg 3 sets
+```
+
+The browser calls `POST http://localhost:3000/assistant/parse`, which calls local Ollama. If the local AI backend is unavailable, the assistant falls back to the existing offline demo logic.
+
 ## Mock Features
 
 - Responsive daily dashboard for nutrition, finance, sleep, and workouts.
 - Plugin store with working add and remove interactions.
 - Detail sheets for logging meals, expenses, sleep, workouts, water, and mindful moments.
 - Activity timeline with plugin filters and history controls.
-- Offline assistant requests with optional browser speech recognition.
+- Local AI assistant parsing for supported commands, with offline demo fallback.
 - Local browser persistence, data export, profile editing, and preferences.
 - Phone-friendly bottom navigation and assistant sheet.
 
