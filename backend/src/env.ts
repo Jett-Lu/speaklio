@@ -16,6 +16,8 @@ const envSchema = z.object({
   CORS_ORIGIN: z.string().default("http://localhost:4173"),
   SUPABASE_URL: z.string().url(),
   SUPABASE_SECRET_KEY: z.string().min(1),
+  LOCAL_AI_URL: z.string().url().default("http://localhost:11434"),
+  LOCAL_AI_MODEL: z.string().min(1).default("speaklio-parser"),
 });
 
 export const env = envSchema.parse(process.env);
