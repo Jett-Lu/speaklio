@@ -38,6 +38,7 @@ This keeps early development flexible while the product model is still changing.
 - `workouts`
 - `meals`
 - `weight_logs`
+- `weight_goals`
 - `sleep_sessions`
 
 Current CRUD route group:
@@ -54,24 +55,55 @@ All entry operations are scoped to the authenticated user.
 
 API fields use camelCase. Database columns remain snake_case.
 
+`GET /entries` supports `pluginId`, `entryType`, `from`, `to`, `limit`, and `offset`.
+
+`POST /entries` creates a matching `activities` row as a timeline item. Activities now carry a nullable `metric_entry_id`, so deleting a metric entry also deletes its related activity through database cascade behavior.
+
+The first validation pass is intentionally lightweight:
+
+- Weight logs require a numeric value and `kg` or `lb`.
+- Calorie logs require a numeric value and use `cal`.
+- Workout logs require `metadata.exercise`.
+- Food logs require `metadata.food`.
+
+More detailed domain validation can be added once the frontend shapes settle.
+
+## Plugin Settings
+
+Plugin visibility and enabled state are handled separately.
+
+`plugins` stores available modules. `user_plugins` stores a user's enabled or disabled state.
+
+Current plugin route group:
+
+```http
+GET /plugins
+PUT /plugins/:pluginId/enable
+DELETE /plugins/:pluginId/enable
+```
+
+This supports dashboard modules without making third-party plugin development part of the capstone scope.
+
 ## Local AI Strategy
 
 The `local_ai/` parser is treated as a local development parser, not a database writer.
 
-Current route:
+Current route group:
 
 ```http
 POST /ai/parse-command
+POST /ai/preview-entry
+POST /ai/confirm-actions
 ```
 
-This route:
+These routes:
 
-- Requires authentication.
+- Require authentication.
 - Sends user text to local Ollama.
 - Uses the `speaklio-parser` model by default.
 - Validates the returned structured action shape.
-- Returns parsed actions to the caller.
-- Does not write to Supabase.
+- Returns parsed actions and preview payloads before writing.
+- Writes to Supabase only after the caller confirms reviewed entry payloads.
 
 ## Preview Before Write
 
@@ -83,11 +115,26 @@ Preferred flow:
 User text
 -> POST /ai/parse-command
 -> validated parsed actions
--> client shows preview or asks for confirmation
--> POST /entries or PATCH /entries/:id
+-> POST /ai/preview-entry
+-> client shows reviewed entry payloads
+-> POST /ai/confirm-actions
 ```
 
 This avoids storing incorrect model output without user review and keeps debugging simple.
+
+`POST /ai/confirm-actions` creates metric entries and matching activity rows. It exists so the AI flow can evolve separately from generic CRUD if confirmation later needs additional metadata, confidence handling, or audit behavior.
+
+Unsupported AI actions are returned as preview items with `entry: null` and a reason. They are not saved by the confirm route unless the client supplies a valid entry payload.
+
+## Account Deletion
+
+The current capstone behavior is immediate hard deletion through Supabase Auth admin:
+
+```http
+DELETE /me
+```
+
+Related database rows cascade from the user/profile relationships and entry/activity links. This is simple and demo-friendly, but a production app may want delayed deletion, export, or recovery behavior.
 
 ## Environment Variables
 
@@ -109,12 +156,12 @@ Do not expose `SUPABASE_SECRET_KEY` in frontend or mobile code.
 
 - Generic `metric_entries` trades strict domain modeling for speed and flexibility.
 - Local AI depends on Ollama running on each developer machine.
-- AI parsing is available to authenticated users but returns previews only.
-- Activity timeline rows are not created automatically yet.
+- AI parsing is available to authenticated users and requires explicit confirmation before writes.
+- Activity timeline rows are created automatically for manual entries and AI-confirmed entries.
 
 ## Next Decisions
 
-- Whether AI-confirmed actions should be saved through existing `/entries` routes or a dedicated `/ai/confirm-actions` route.
-- Whether activities should be created in backend route handlers when entries are created.
 - Which parsed action types need first-class domain tables later.
 - Whether local AI remains development-only or becomes a pluggable provider behind a common parser interface.
+- Whether activities should become directly editable/deletable or stay derived from entries.
+- How strict confirm-time validation should become for each entry type.

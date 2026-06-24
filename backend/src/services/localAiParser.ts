@@ -15,7 +15,7 @@ function stripBom(value: string) {
 const responseFormat = JSON.parse(stripBom(fs.readFileSync(path.join(localAiRoot, "schema.json"), "utf8"))) as unknown;
 const scopePrompt = stripBom(fs.readFileSync(path.join(localAiRoot, "docs", "scope.md"), "utf8"));
 
-const aiActionSchema = z.strictObject({
+export const aiActionSchema = z.strictObject({
   type: z.enum([
     "set_profile",
     "set_weight_goal",
@@ -67,6 +67,7 @@ const aiParserResponseSchema = z.strictObject({
 });
 
 export type LocalAiParserResponse = z.infer<typeof aiParserResponseSchema>;
+export type LocalAiAction = z.infer<typeof aiActionSchema>;
 
 export async function parseCommandWithLocalAi(text: string): Promise<LocalAiParserResponse> {
   const response = await fetch(`${env.LOCAL_AI_URL}/api/chat`, {

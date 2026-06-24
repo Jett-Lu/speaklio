@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { requireAuth, type AuthenticatedRequest } from "../middleware/auth.js";
+import { createActivityForEntry, toActivityResponse } from "../services/entryActivity.js";
 import { supabaseAdmin } from "../services/supabase.js";
 
 export const entriesRouter = Router();
@@ -14,7 +15,7 @@ const createEntrySchema = z.object({
   unit: z.string().trim().min(1).max(40).nullable().optional(),
   metadata: z.record(z.string(), z.unknown()).default({}),
   occurredAt: z.string().datetime({ offset: true }).optional(),
-});
+}).superRefine(validateEntryByType);
 
 const updateEntrySchema = z.object({
   pluginId: z.string().trim().min(1).max(80).nullable().optional(),
@@ -30,7 +31,10 @@ const updateEntrySchema = z.object({
 const listQuerySchema = z.object({
   pluginId: z.string().trim().min(1).max(80).optional(),
   entryType: z.string().trim().min(1).max(80).optional(),
+  from: z.string().datetime({ offset: true }).optional(),
+  to: z.string().datetime({ offset: true }).optional(),
   limit: z.coerce.number().int().min(1).max(100).default(50),
+  offset: z.coerce.number().int().min(0).default(0),
 });
 
 function toEntryResponse(entry: Record<string, unknown>) {
@@ -45,6 +49,67 @@ function toEntryResponse(entry: Record<string, unknown>) {
     occurredAt: entry.occurred_at,
     createdAt: entry.created_at,
   };
+}
+
+function hasMetadataString(metadata: Record<string, unknown>, key: string) {
+  return typeof metadata[key] === "string" && metadata[key].trim().length > 0;
+}
+
+function validateEntryByType(
+  entry: z.infer<typeof createEntrySchema>,
+  context: z.RefinementCtx,
+) {
+  if (entry.entryType === "log_weight") {
+    if (entry.value === undefined || entry.value === null) {
+      context.addIssue({
+        code: "custom",
+        path: ["value"],
+        message: "Weight logs require a numeric value",
+      });
+    }
+
+    if (!entry.unit || !["kg", "lb"].includes(entry.unit)) {
+      context.addIssue({
+        code: "custom",
+        path: ["unit"],
+        message: "Weight logs require unit kg or lb",
+      });
+    }
+  }
+
+  if (entry.entryType === "log_calories") {
+    if (entry.value === undefined || entry.value === null) {
+      context.addIssue({
+        code: "custom",
+        path: ["value"],
+        message: "Calorie logs require a numeric value",
+      });
+    }
+
+    if (entry.unit && entry.unit !== "cal") {
+      context.addIssue({
+        code: "custom",
+        path: ["unit"],
+        message: "Calorie logs should use unit cal",
+      });
+    }
+  }
+
+  if (entry.entryType === "log_workout" && !hasMetadataString(entry.metadata, "exercise")) {
+    context.addIssue({
+      code: "custom",
+      path: ["metadata", "exercise"],
+      message: "Workout logs require metadata.exercise",
+    });
+  }
+
+  if (entry.entryType === "log_food" && !hasMetadataString(entry.metadata, "food")) {
+    context.addIssue({
+      code: "custom",
+      path: ["metadata", "food"],
+      message: "Food logs require metadata.food",
+    });
+  }
 }
 
 function toCreateRow(userId: string, entry: z.infer<typeof createEntrySchema>) {
@@ -85,10 +150,10 @@ entriesRouter.get("/", requireAuth, async (request, response, next) => {
     const { user } = request as AuthenticatedRequest;
     let query = supabaseAdmin
       .from("metric_entries")
-      .select(entrySelect)
+      .select(entrySelect, { count: "exact" })
       .eq("user_id", user.id)
       .order("occurred_at", { ascending: false })
-      .limit(parsed.data.limit);
+      .range(parsed.data.offset, parsed.data.offset + parsed.data.limit - 1);
 
     if (parsed.data.pluginId) {
       query = query.eq("plugin_id", parsed.data.pluginId);
@@ -98,7 +163,15 @@ entriesRouter.get("/", requireAuth, async (request, response, next) => {
       query = query.eq("entry_type", parsed.data.entryType);
     }
 
-    const { data, error } = await query;
+    if (parsed.data.from) {
+      query = query.gte("occurred_at", parsed.data.from);
+    }
+
+    if (parsed.data.to) {
+      query = query.lte("occurred_at", parsed.data.to);
+    }
+
+    const { data, error, count } = await query;
 
     if (error) {
       response.status(500).json({
@@ -110,6 +183,11 @@ entriesRouter.get("/", requireAuth, async (request, response, next) => {
 
     response.json({
       entries: data.map(toEntryResponse),
+      pagination: {
+        limit: parsed.data.limit,
+        offset: parsed.data.offset,
+        count,
+      },
     });
   } catch (error) {
     next(error);
@@ -143,8 +221,12 @@ entriesRouter.post("/", requireAuth, async (request, response, next) => {
       return;
     }
 
+    const { data: activity, error: activityError } = await createActivityForEntry(data);
+
     response.status(201).json({
       entry: toEntryResponse(data),
+      activity: activity ? toActivityResponse(activity) : null,
+      ...(activityError ? { activityWarning: activityError.message } : {}),
     });
   } catch (error) {
     next(error);
@@ -154,10 +236,11 @@ entriesRouter.post("/", requireAuth, async (request, response, next) => {
 entriesRouter.get("/:id", requireAuth, async (request, response, next) => {
   try {
     const { user } = request as AuthenticatedRequest;
+    const entryId = String(request.params.id);
     const { data, error } = await supabaseAdmin
       .from("metric_entries")
       .select(entrySelect)
-      .eq("id", request.params.id)
+      .eq("id", entryId)
       .eq("user_id", user.id)
       .maybeSingle();
 
@@ -197,10 +280,11 @@ entriesRouter.patch("/:id", requireAuth, async (request, response, next) => {
     }
 
     const { user } = request as AuthenticatedRequest;
+    const entryId = String(request.params.id);
     const { data, error } = await supabaseAdmin
       .from("metric_entries")
       .update(toUpdateRow(parsed.data))
-      .eq("id", request.params.id)
+      .eq("id", entryId)
       .eq("user_id", user.id)
       .select(entrySelect)
       .maybeSingle();
@@ -231,10 +315,11 @@ entriesRouter.patch("/:id", requireAuth, async (request, response, next) => {
 entriesRouter.delete("/:id", requireAuth, async (request, response, next) => {
   try {
     const { user } = request as AuthenticatedRequest;
+    const entryId = String(request.params.id);
     const { data, error } = await supabaseAdmin
       .from("metric_entries")
       .delete()
-      .eq("id", request.params.id)
+      .eq("id", entryId)
       .eq("user_id", user.id)
       .select("id")
       .maybeSingle();

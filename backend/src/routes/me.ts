@@ -87,3 +87,22 @@ meRouter.patch("/profile", requireAuth, async (request, response, next) => {
     next(error);
   }
 });
+
+meRouter.delete("/", requireAuth, async (request, response, next) => {
+  try {
+    const { user } = request as AuthenticatedRequest;
+    const { error } = await supabaseAdmin.auth.admin.deleteUser(user.id);
+
+    if (error) {
+      response.status(500).json({
+        error: "Unable to delete account",
+        message: error.message,
+      });
+      return;
+    }
+
+    response.status(204).send();
+  } catch (error) {
+    next(error);
+  }
+});
