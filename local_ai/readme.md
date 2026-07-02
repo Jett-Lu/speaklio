@@ -1,29 +1,56 @@
-﻿local ai setup
+# Speaklio Local AI
 
-install ollama first if it is missing
+This directory contains the local Ollama parser setup for AI-assisted logging.
 
+The backend calls this local parser through Ollama when using:
+
+- `POST /ai/parse-command`
+- `POST /ai/preview-entry` with raw text
+
+The parser is local-development tooling. It should not write directly to Supabase.
+
+## Setup
+
+Install Ollama first if it is missing:
+
+```powershell
 irm https://ollama.com/install.ps1 | iex
+```
 
-close powershell and open it again
+Close PowerShell and open it again.
 
-from the project folder run
+From the project folder, run:
 
+```powershell
 powershell -ExecutionPolicy Bypass -File .\local_ai\setup.ps1
+```
 
-test it
+## Test It
 
+```powershell
 ollama run speaklio-parser
+```
 
-try this
+Try:
 
+```text
 log leg curls 20 kg 3 sets
+```
 
-leave with
+Leave with:
 
+```text
 /bye
+```
 
-the app uses local_ai/parser.js
+## Files
 
-the setup downloads the model on each computer
+- `schema.json` - expected structured parser output shape.
+- `docs/scope.md` - parser behavior and supported action scope.
+- `modelfile` - Ollama model instructions.
+- `setup.ps1` - local setup script.
+- `parser.js` - standalone local parser helper.
 
-do not add model files to github
+The setup downloads/builds the model on each computer.
+
+Do not add model files to GitHub.

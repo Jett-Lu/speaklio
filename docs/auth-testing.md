@@ -153,6 +153,43 @@ Expected result:
 - `profile.timezone` is updated.
 - `profile.updated_at` changed.
 
+## Optional: Test Plugin Settings
+
+```powershell
+Invoke-RestMethod -Uri "http://localhost:3000/plugins" -Headers @{
+  Authorization = "Bearer $accessToken"
+}
+
+Invoke-RestMethod -Method Put -Uri "http://localhost:3000/plugins/workout/enable" -Headers @{
+  Authorization = "Bearer $accessToken"
+}
+
+Invoke-RestMethod -Method Delete -Uri "http://localhost:3000/plugins/workout/enable" -Headers @{
+  Authorization = "Bearer $accessToken"
+}
+```
+
+Expected result:
+
+- The plugin list returns active plugins.
+- The enable route returns the selected plugin with `enabled = true`.
+- The disable route returns the selected plugin with `enabled = false`.
+
+## Optional: Test Account Deletion
+
+Only run this with a throwaway local test user.
+
+```powershell
+Invoke-RestMethod -Method Delete -Uri "http://localhost:3000/me" -Headers @{
+  Authorization = "Bearer $accessToken"
+}
+```
+
+Expected result:
+
+- HTTP `204`
+- The same token should no longer work for protected routes.
+
 ## Test Missing Auth
 
 ```powershell

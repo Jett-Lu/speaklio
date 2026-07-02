@@ -2,7 +2,7 @@
 
 Status: accepted for current backend phase
 
-Last updated: 2026-06-10
+Last updated: 2026-06-23
 
 ## Context
 
@@ -54,6 +54,18 @@ The Express backend verifies that token with Supabase before running protected r
 - `PATCH /me/profile`
   - Requires a Supabase access token.
   - Updates editable profile fields.
+- `DELETE /me`
+  - Requires a Supabase access token.
+  - Deletes the authenticated Supabase user immediately.
+- `/entries`
+  - Requires a Supabase access token.
+  - Reads, creates, updates, and deletes metric entries scoped to the authenticated user.
+- `/plugins`
+  - Requires a Supabase access token.
+  - Reads active plugins and updates the authenticated user's enabled plugin settings.
+- `/ai`
+  - Requires a Supabase access token.
+  - Parses local AI commands, previews proposed entries, and saves confirmed entries.
 
 ## Security Rules
 
@@ -71,10 +83,10 @@ The Express backend verifies that token with Supabase before running protected r
 - Password reset UI.
 - User-to-user sharing.
 - Role-based admin permissions.
-- Account deletion policy.
+- Delayed account deletion, recovery, or export flows.
 
 ## Open Decisions
 
-- Whether account deletion should be immediate hard delete, delayed deletion, or anonymization plus deletion.
+- Whether production account deletion should stay immediate hard delete or become delayed deletion/anonymization.
 - Whether assistant transcripts should be stored or treated as transient unless converted into structured log entries.
 - Whether clients should read some user-owned data directly from Supabase or route more reads through Express.

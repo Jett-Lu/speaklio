@@ -1,7 +1,10 @@
 import cors from "cors";
 import express from "express";
+import { aiRouter } from "./routes/ai.js";
+import { entriesRouter } from "./routes/entries.js";
 import { healthRouter } from "./routes/health.js";
 import { meRouter } from "./routes/me.js";
+import { pluginsRouter } from "./routes/plugins.js";
 
 export function createApp() {
   const app = express();
@@ -18,6 +21,9 @@ export function createApp() {
 
   app.use("/health", healthRouter);
   app.use("/me", meRouter);
+  app.use("/entries", entriesRouter);
+  app.use("/ai", aiRouter);
+  app.use("/plugins", pluginsRouter);
 
   app.use((_request, response) => {
     response.status(404).json({

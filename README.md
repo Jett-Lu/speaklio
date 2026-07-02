@@ -17,6 +17,7 @@ Use Node.js 24 or newer for local development.
 - `frontend/` - current static dashboard prototype.
 - `backend/` - Express + TypeScript API service.
 - `supabase/` - local Supabase config, migrations, and seed data.
+- `local_ai/` - local Ollama parser setup for AI-assisted logging.
 - `docs/` - architecture notes, testing guides, and temporary planning docs.
 
 ## First-Time Setup
@@ -57,9 +58,9 @@ npm run frontend:dev
 
 ### Backend
 
-The backend is an Express + TypeScript service for privileged workflows such as AI/LLM requests, account deletion, and operations that require secret keys.
+The backend is an Express + TypeScript service for privileged workflows such as AI/LLM requests, account deletion, plugin settings, and operations that require secret keys.
 
-Current backend routes include health checks, `GET /me`, and `PATCH /me/profile`.
+Current backend routes include health checks, profile routes, account deletion, plugin settings, authenticated metric entry CRUD, and local AI parse/preview/confirm endpoints.
 
 Useful commands:
 
@@ -75,6 +76,8 @@ Auth docs:
 
 - `docs/auth-architecture.md`
 - `docs/auth-testing.md`
+- `docs/backend-technical-decisions.md`
+- `docs/remaining-work.md`
 
 ## Current Planning Assumptions
 
@@ -84,7 +87,7 @@ Auth docs:
 - Keep raw audio transient for the initial LLM query flow.
 - Keep the frontend/mobile choice flexible.
 
-See `docs/BACKEND_BRAINSTORM.md` for the working backend planning notes.
+See `docs/backend-technical-decisions.md` and `docs/remaining-work.md` for current backend planning notes.
 
 ## Local Supabase
 
@@ -98,9 +101,11 @@ npm run supabase:db:reset
 npm run supabase:stop
 ```
 
-The first schema migration lives in `supabase/migrations/`, and default plugin data lives in `supabase/seed.sql`.
+Schema migrations live in `supabase/migrations/`, and default plugin data lives in `supabase/seed.sql`.
 
 The `supabase:psql` script opens `psql` inside the local Supabase Postgres container, so a separate local PostgreSQL client install is not required.
+
+See `supabase/README.md` for migration and seed notes.
 
 ## Cloud Supabase
 
