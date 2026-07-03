@@ -30,44 +30,38 @@
         </div>
         <div class="auth-copy">
           <p class="eyebrow">WELCOME BACK</p>
-          <h1>Your day, ready when you are.</h1>
-          <p>Sign in to continue tracking nutrition, sleep, workouts, spending, and daily insights in one place.</p>
+          <h1>Sign in to Speaklio</h1>
+          <p>Enter your email to continue.</p>
         </div>
         <form class="auth-form" id="login-form">
           <label for="login-email">Email</label>
           <input id="login-email" name="email" type="email" value="jordan@example.com" autocomplete="email" required />
           <button class="primary-button" type="submit">Sign in</button>
         </form>
-        <div class="auth-account">
-          <div class="avatar">JM</div>
-          <div>
-            <strong>Jordan Miller</strong>
-            <span>Saved account</span>
+        <div class="auth-actions">
+          <button class="text-button" type="button" data-auth-action="start-setup">Create a new account</button>
+        </div>
+        <section class="account-setup-panel" id="account-setup-panel" hidden>
+          <div class="section-title-row compact">
+            <div>
+              <p class="eyebrow">NEW ACCOUNT</p>
+              <h2>Set up your plan</h2>
+            </div>
+            <button class="text-button" type="button" data-auth-action="back-to-login">Back</button>
           </div>
-        </div>
-      </section>
-      <section class="auth-visual" aria-label="Speaklio account highlights">
-        <div class="auth-score">
-          <span>Daily balance</span>
-          <strong>82</strong>
-        </div>
-        <div class="auth-highlight-grid">
-          <article>
-            <span class="plugin-icon nutrition"><span class="icon" data-icon="apple"></span></span>
-            <strong>Nutrition</strong>
-            <small>Calories and macros synced.</small>
-          </article>
-          <article>
-            <span class="plugin-icon workout"><span class="icon" data-icon="watch"></span></span>
-            <strong>Apple Health</strong>
-            <small>Activity and recovery ready.</small>
-          </article>
-          <article>
-            <span class="plugin-icon sleep"><span class="icon" data-icon="moon"></span></span>
-            <strong>Sleep</strong>
-            <small>Recovery trends prepared.</small>
-          </article>
-        </div>
+          <form class="quick-form account-setup-form" data-form="account-setup">
+            <div class="form-grid">
+              <label>Name<input required name="name" value="Jordan Miller" autocomplete="name" /></label>
+              <label>Email<input required name="email" type="email" value="jordan@example.com" autocomplete="email" /></label>
+              <label>Age<input required name="age" type="number" min="13" max="120" value="29" /></label>
+              <label>Activity level<select name="activityLevel"><option value="light">Light</option><option value="moderate" selected>Moderate</option><option value="active">Active</option><option value="athlete">Athlete</option></select></label>
+              <label>Height (cm)<input required name="heightCm" type="number" min="100" max="240" value="178" /></label>
+              <label>Weight (kg)<input required name="weightKg" type="number" min="30" max="250" step="0.1" value="78" /></label>
+            </div>
+            <label>Primary goal<select name="primaryGoal"><option value="maintain">Maintain weight</option><option value="lose">Lose fat</option><option value="gain">Build muscle</option><option value="performance">Improve performance</option></select></label>
+            <button class="primary-button" type="submit">Create my plan</button>
+          </form>
+        </section>
       </section>
     </main>
 
@@ -503,43 +497,44 @@
           </section>
           <section class="profile-overview-grid" aria-label="Profile overview">
             <article class="mini-stat">
-              <span>Timezone</span>
-              <strong>Toronto</strong>
-              <small>Used for daily summaries</small>
+              <span>Body</span>
+              <strong id="profile-weight">78 kg</strong>
+              <small id="profile-height">178 cm tall</small>
             </article>
             <article class="mini-stat">
-              <span>Units</span>
-              <strong>Metric</strong>
-              <small>kg, cm, ml</small>
+              <span>Primary goal</span>
+              <strong id="profile-goal">Maintain</strong>
+              <small id="profile-target-weight">Target 78 kg</small>
             </article>
             <article class="mini-stat">
-              <span>AI parsing</span>
-              <strong>Ready</strong>
-              <small>Natural-language parser ready</small>
+              <span>Daily target</span>
+              <strong id="profile-calorie-goal">2,100 cal</strong>
+              <small id="profile-protein-goal">120g protein</small>
             </article>
           </section>
           <section class="setup-checklist">
             <div class="section-title-row compact">
               <div>
-                <p class="eyebrow">SETUP</p>
-                <h2>Product readiness</h2>
+                <p class="eyebrow">TAILORED PLAN</p>
+                <h2>Your baseline</h2>
               </div>
+              <button class="text-button" data-profile-action="account-setup">Retune plan</button>
             </div>
             <div class="checklist-grid">
               <div class="checklist-item done">
                 <span></span>
-                <strong>Profile basics</strong>
-                <small>Name and email are set.</small>
+                <strong id="profile-age">29 years old</strong>
+                <small>Used to tune calorie and recovery targets.</small>
               </div>
               <div class="checklist-item done">
                 <span></span>
-                <strong>Core plugins</strong>
-                <small>Nutrition, finance, sleep, and workout enabled.</small>
+                <strong id="profile-activity-level">Moderate activity</strong>
+                <small>Sets the starting point for daily energy needs.</small>
               </div>
               <div class="checklist-item">
                 <span></span>
-                <strong>Goals</strong>
-                <small>Weight and macro goals can be connected later.</small>
+                <strong id="profile-workout-goal">4 workouts weekly</strong>
+                <small id="profile-hydration-goal">2.7 L water daily.</small>
               </div>
             </div>
           </section>
@@ -570,6 +565,16 @@
             </div>
           </section>
           <section class="settings-list">
+            <button data-profile-action="personal-data">
+              <span class="setting-icon"><span class="icon" data-icon="user"></span></span>
+              <span><strong>Personal data</strong><small>Height, weight, age, and activity level</small></span>
+              <span class="icon" data-icon="chevron-right"></span>
+            </button>
+            <button data-profile-action="goals">
+              <span class="setting-icon"><span class="icon" data-icon="bolt"></span></span>
+              <span><strong>Goals and targets</strong><small>Calories, protein, weight, and workouts</small></span>
+              <span class="icon" data-icon="chevron-right"></span>
+            </button>
             <button data-profile-action="integrations">
               <span class="setting-icon"><span class="icon" data-icon="watch"></span></span>
               <span><strong>Connected apps</strong><small>Apple Health, Apple Watch, and device sync</small></span>

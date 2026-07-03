@@ -45,10 +45,26 @@ function makeDefaultState() {
     profile: {
       name: "Jordan Miller",
       email: "jordan@example.com",
+      timezone: "Toronto",
+      units: "Metric",
       notifications: true,
       weeklySummary: true,
       assistantInsights: true,
       compactCards: false,
+      personal: {
+        age: 29,
+        heightCm: 178,
+        weightKg: 78,
+        activityLevel: "moderate",
+      },
+      goals: {
+        primaryGoal: "maintain",
+        targetWeightKg: 78,
+        calorieGoal: 2100,
+        proteinGoal: 120,
+        hydrationGoal: 2700,
+        weeklyWorkouts: 4,
+      },
     },
     nutrition: { calories: 1420, goal: 2100, protein: 72, carbs: 164, fats: 54 },
     finance: { spending: 1264, budget: 2000 },
@@ -81,7 +97,12 @@ function loadState() {
       ...defaults,
       ...saved,
       authenticated: typeof saved.authenticated === "boolean" ? saved.authenticated : defaults.authenticated,
-      profile: { ...defaults.profile, ...saved.profile },
+      profile: {
+        ...defaults.profile,
+        ...saved.profile,
+        personal: { ...defaults.profile.personal, ...saved.profile?.personal },
+        goals: { ...defaults.profile.goals, ...saved.profile?.goals },
+      },
       nutrition: { ...defaults.nutrition, ...saved.nutrition },
       finance: { ...defaults.finance, ...saved.finance },
       sleep: { ...defaults.sleep, ...saved.sleep },
@@ -117,6 +138,7 @@ const assistantPreviewTitle = document.getElementById("assistant-preview-title")
 const assistantPreviewCopy = document.getElementById("assistant-preview-copy");
 const loginForm = document.getElementById("login-form");
 const loginEmail = document.getElementById("login-email");
+const accountSetupPanel = document.getElementById("account-setup-panel");
 
 function escapeHtml(value) {
   return String(value)
@@ -138,6 +160,48 @@ function formatMoney(value) {
 function formatMinutes(minutes) {
   const rounded = Math.max(0, Math.round(minutes));
   return `${Math.floor(rounded / 60)}h ${rounded % 60}m`;
+}
+
+function formatWeight(kg) {
+  return `${Number(kg).toFixed(Number(kg) % 1 ? 1 : 0)} kg`;
+}
+
+function formatGoalLabel(goal) {
+  const labels = {
+    maintain: "Maintain",
+    lose: "Lose fat",
+    gain: "Build muscle",
+    performance: "Performance",
+  };
+  return labels[goal] || "Maintain";
+}
+
+function formatActivityLabel(activityLevel) {
+  const labels = {
+    light: "Light activity",
+    moderate: "Moderate activity",
+    active: "Active routine",
+    athlete: "Athlete mode",
+  };
+  return labels[activityLevel] || "Moderate activity";
+}
+
+function optionMarkup(value, label, selectedValue) {
+  return `<option value="${escapeHtml(value)}" ${value === selectedValue ? "selected" : ""}>${escapeHtml(label)}</option>`;
+}
+
+function getTailoredGoals({ weightKg, primaryGoal, activityLevel }) {
+  const activityMultipliers = { light: 28, moderate: 31, active: 34, athlete: 38 };
+  const goalAdjustments = { lose: -350, maintain: 0, gain: 250, performance: 150 };
+  const calories = Math.round(((Number(weightKg) || 78) * (activityMultipliers[activityLevel] || 31) + (goalAdjustments[primaryGoal] || 0)) / 50) * 50;
+  const proteinMultiplier = primaryGoal === "gain" || primaryGoal === "performance" ? 1.9 : primaryGoal === "lose" ? 1.8 : 1.6;
+  const weeklyWorkouts = activityLevel === "athlete" ? 5 : activityLevel === "active" ? 4 : primaryGoal === "performance" ? 4 : 3;
+  return {
+    calorieGoal: clamp(calories, 1400, 4200),
+    proteinGoal: Math.round((Number(weightKg) || 78) * proteinMultiplier),
+    hydrationGoal: Math.round(((Number(weightKg) || 78) * 35) / 50) * 50,
+    weeklyWorkouts,
+  };
 }
 
 function initials(name) {
@@ -177,6 +241,7 @@ function updateDateAndProfile() {
   const hour = now.getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
   const firstName = state.profile.name.split(/\s+/)[0] || "there";
+  const { personal, goals } = state.profile;
   document.getElementById("current-date").textContent = now.toLocaleDateString(undefined, {
     weekday: "long",
     month: "long",
@@ -187,9 +252,25 @@ function updateDateAndProfile() {
   document.getElementById("profile-email").textContent = state.profile.email;
   document.querySelector(".mini-profile strong").textContent = state.profile.name;
   if (loginEmail) loginEmail.value = state.profile.email;
+  document.getElementById("profile-weight").textContent = formatWeight(personal.weightKg);
+  document.getElementById("profile-height").textContent = `${personal.heightCm} cm tall`;
+  document.getElementById("profile-goal").textContent = formatGoalLabel(goals.primaryGoal);
+  document.getElementById("profile-target-weight").textContent = `Target ${formatWeight(goals.targetWeightKg)}`;
+  document.getElementById("profile-calorie-goal").textContent = `${goals.calorieGoal.toLocaleString()} cal`;
+  document.getElementById("profile-protein-goal").textContent = `${goals.proteinGoal}g protein`;
+  document.getElementById("profile-age").textContent = `${personal.age} years old`;
+  document.getElementById("profile-activity-level").textContent = formatActivityLabel(personal.activityLevel);
+  document.getElementById("profile-workout-goal").textContent = `${goals.weeklyWorkouts} workouts weekly`;
+  document.getElementById("profile-hydration-goal").textContent = `${(goals.hydrationGoal / 1000).toFixed(1)} L water daily.`;
   document.querySelectorAll(".avatar, .large-avatar").forEach((avatar) => {
     avatar.textContent = initials(state.profile.name);
   });
+}
+
+function syncProfileGoalsToDashboard() {
+  state.nutrition.goal = state.profile.goals.calorieGoal;
+  state.workout.goal = state.profile.goals.weeklyWorkouts;
+  state.hydration.goal = state.profile.goals.hydrationGoal;
 }
 
 function updateDailyBalance() {
@@ -394,6 +475,7 @@ function renderAuthState() {
 
 function renderAll() {
   renderAuthState();
+  syncProfileGoalsToDashboard();
   updateDateAndProfile();
   updateMetrics();
   renderActivity();
@@ -404,8 +486,10 @@ function renderAll() {
 function signIn(email) {
   state.authenticated = true;
   if (email) state.profile.email = email;
+  hideAccountSetup();
   saveState();
   renderAll();
+  openView("home");
   showToast("Signed in to Speaklio");
 }
 
@@ -413,8 +497,18 @@ function signOut() {
   state.authenticated = false;
   closeModal();
   hideAssistant();
+  openView("home");
+  hideAccountSetup();
   saveState();
   renderAuthState();
+}
+
+function showAccountSetup() {
+  accountSetupPanel.hidden = false;
+}
+
+function hideAccountSetup() {
+  accountSetupPanel.hidden = true;
 }
 
 function addActivity(activity) {
@@ -626,6 +720,35 @@ function openIntegration(integrationId) {
   });
 }
 
+function applyAccountSetup(data) {
+  const name = String(data.get("name") || state.profile.name).trim() || state.profile.name;
+  const email = String(data.get("email") || state.profile.email).trim() || state.profile.email;
+  const age = Number(data.get("age") || state.profile.personal.age);
+  const heightCm = Number(data.get("heightCm") || state.profile.personal.heightCm);
+  const weightKg = Number(data.get("weightKg") || state.profile.personal.weightKg);
+  const activityLevel = String(data.get("activityLevel") || state.profile.personal.activityLevel);
+  const primaryGoal = String(data.get("primaryGoal") || state.profile.goals.primaryGoal);
+  const tailored = getTailoredGoals({ weightKg, primaryGoal, activityLevel });
+  const targetWeightKg = primaryGoal === "lose"
+    ? Math.max(30, weightKg - 5)
+    : primaryGoal === "gain"
+      ? weightKg + 3
+      : weightKg;
+
+  state.authenticated = true;
+  state.profile.name = name;
+  state.profile.email = email;
+  state.profile.personal = { age, heightCm, weightKg, activityLevel };
+  state.profile.goals = {
+    primaryGoal,
+    targetWeightKg,
+    calorieGoal: tailored.calorieGoal,
+    proteinGoal: tailored.proteinGoal,
+    hydrationGoal: tailored.hydrationGoal,
+    weeklyWorkouts: tailored.weeklyWorkouts,
+  };
+}
+
 function openPlugin(pluginId) {
   const plugin = pluginMap[pluginId];
   if (!plugin) return;
@@ -814,6 +937,88 @@ function openProfileAction(action) {
     });
   }
 
+  if (action === "personal-data") {
+    const { personal } = state.profile;
+    openModal({
+      eyebrow: "PROFILE",
+      title: "Personal data",
+      body: `
+        <form class="quick-form" data-form="personal-data">
+          <div class="form-grid">
+            <label>Age<input required name="age" type="number" min="13" max="120" value="${personal.age}" /></label>
+            <label>Activity level<select name="activityLevel">
+              ${optionMarkup("light", "Light", personal.activityLevel)}
+              ${optionMarkup("moderate", "Moderate", personal.activityLevel)}
+              ${optionMarkup("active", "Active", personal.activityLevel)}
+              ${optionMarkup("athlete", "Athlete", personal.activityLevel)}
+            </select></label>
+            <label>Height (cm)<input required name="heightCm" type="number" min="100" max="240" value="${personal.heightCm}" /></label>
+            <label>Weight (kg)<input required name="weightKg" type="number" min="30" max="250" step="0.1" value="${personal.weightKg}" /></label>
+          </div>
+          <button class="primary-button" type="submit">Save personal data</button>
+        </form>
+      `,
+    });
+  }
+
+  if (action === "goals") {
+    const { goals } = state.profile;
+    openModal({
+      eyebrow: "GOALS",
+      title: "Goals and targets",
+      body: `
+        <form class="quick-form" data-form="goals">
+          <label>Primary goal<select name="primaryGoal">
+            ${optionMarkup("maintain", "Maintain weight", goals.primaryGoal)}
+            ${optionMarkup("lose", "Lose fat", goals.primaryGoal)}
+            ${optionMarkup("gain", "Build muscle", goals.primaryGoal)}
+            ${optionMarkup("performance", "Improve performance", goals.primaryGoal)}
+          </select></label>
+          <div class="form-grid">
+            <label>Target weight (kg)<input required name="targetWeightKg" type="number" min="30" max="250" step="0.1" value="${goals.targetWeightKg}" /></label>
+            <label>Calories<input required name="calorieGoal" type="number" min="1000" max="6000" step="50" value="${goals.calorieGoal}" /></label>
+            <label>Protein (g)<input required name="proteinGoal" type="number" min="20" max="350" value="${goals.proteinGoal}" /></label>
+            <label>Water (ml)<input required name="hydrationGoal" type="number" min="1000" max="6000" step="50" value="${goals.hydrationGoal}" /></label>
+            <label>Weekly workouts<input required name="weeklyWorkouts" type="number" min="1" max="14" value="${goals.weeklyWorkouts}" /></label>
+          </div>
+          <button class="primary-button" type="submit">Save goals</button>
+        </form>
+      `,
+    });
+  }
+
+  if (action === "account-setup") {
+    const { personal, goals } = state.profile;
+    openModal({
+      eyebrow: "TAILORED PLAN",
+      title: "Retune your plan",
+      body: `
+        <form class="quick-form" data-form="account-setup">
+          <div class="form-grid">
+            <label>Name<input required name="name" value="${escapeHtml(state.profile.name)}" /></label>
+            <label>Email<input required name="email" type="email" value="${escapeHtml(state.profile.email)}" /></label>
+            <label>Age<input required name="age" type="number" min="13" max="120" value="${personal.age}" /></label>
+            <label>Activity level<select name="activityLevel">
+              ${optionMarkup("light", "Light", personal.activityLevel)}
+              ${optionMarkup("moderate", "Moderate", personal.activityLevel)}
+              ${optionMarkup("active", "Active", personal.activityLevel)}
+              ${optionMarkup("athlete", "Athlete", personal.activityLevel)}
+            </select></label>
+            <label>Height (cm)<input required name="heightCm" type="number" min="100" max="240" value="${personal.heightCm}" /></label>
+            <label>Weight (kg)<input required name="weightKg" type="number" min="30" max="250" step="0.1" value="${personal.weightKg}" /></label>
+          </div>
+          <label>Primary goal<select name="primaryGoal">
+            ${optionMarkup("maintain", "Maintain weight", goals.primaryGoal)}
+            ${optionMarkup("lose", "Lose fat", goals.primaryGoal)}
+            ${optionMarkup("gain", "Build muscle", goals.primaryGoal)}
+            ${optionMarkup("performance", "Improve performance", goals.primaryGoal)}
+          </select></label>
+          <button class="primary-button" type="submit">Create my plan</button>
+        </form>
+      `,
+    });
+  }
+
   if (action === "notifications") {
     openModal({
       eyebrow: "SETTINGS",
@@ -878,6 +1083,13 @@ function openProfileAction(action) {
       title: "Preferences",
       body: `
         <form class="quick-form" data-form="preferences">
+          <div class="form-grid">
+            <label>Timezone<input name="timezone" value="${escapeHtml(state.profile.timezone)}" /></label>
+            <label>Units<select name="units">
+              ${optionMarkup("Metric", "Metric", state.profile.units)}
+              ${optionMarkup("Imperial", "Imperial", state.profile.units)}
+            </select></label>
+          </div>
           <label class="toggle-row"><span><strong>Assistant insights</strong><small>Let Speaklio offer simple proactive suggestions.</small></span><input name="assistantInsights" type="checkbox" ${state.profile.assistantInsights ? "checked" : ""} /></label>
           <label class="toggle-row"><span><strong>Compact dashboard cards</strong><small>Reduce spacing when you want a denser overview.</small></span><input name="compactCards" type="checkbox" ${state.profile.compactCards ? "checked" : ""} /></label>
           <button class="primary-button" type="submit">Save preferences</button>
@@ -1049,6 +1261,8 @@ function processRequest(rawText) {
 document.addEventListener("click", (event) => {
   const authAction = event.target.closest("[data-auth-action]");
   if (authAction?.dataset.authAction === "sign-out") signOut();
+  if (authAction?.dataset.authAction === "start-setup") showAccountSetup();
+  if (authAction?.dataset.authAction === "back-to-login") hideAccountSetup();
 
   const viewButton = event.target.closest("[data-view]");
   if (viewButton) openView(viewButton.dataset.view);
@@ -1130,6 +1344,7 @@ document.addEventListener("submit", (event) => {
   if (!form) return;
   event.preventDefault();
   const data = new FormData(form);
+  let shouldOpenHome = false;
 
   if (form.dataset.form === "meal") {
     const calories = Number(data.get("calories"));
@@ -1177,6 +1392,46 @@ document.addEventListener("submit", (event) => {
     showToast("Profile updated");
   }
 
+  if (form.dataset.form === "personal-data") {
+    const age = Number(data.get("age"));
+    const heightCm = Number(data.get("heightCm"));
+    const weightKg = Number(data.get("weightKg"));
+    const activityLevel = String(data.get("activityLevel"));
+    const tailored = getTailoredGoals({ weightKg, primaryGoal: state.profile.goals.primaryGoal, activityLevel });
+    state.profile.personal = { age, heightCm, weightKg, activityLevel };
+    state.profile.goals = {
+      ...state.profile.goals,
+      calorieGoal: tailored.calorieGoal,
+      proteinGoal: tailored.proteinGoal,
+      hydrationGoal: tailored.hydrationGoal,
+      weeklyWorkouts: tailored.weeklyWorkouts,
+    };
+    closeModal();
+    showToast("Personal data updated");
+  }
+
+  if (form.dataset.form === "goals") {
+    state.profile.goals = {
+      ...state.profile.goals,
+      primaryGoal: String(data.get("primaryGoal")),
+      targetWeightKg: Number(data.get("targetWeightKg")),
+      calorieGoal: Number(data.get("calorieGoal")),
+      proteinGoal: Number(data.get("proteinGoal")),
+      hydrationGoal: Number(data.get("hydrationGoal")),
+      weeklyWorkouts: Number(data.get("weeklyWorkouts")),
+    };
+    closeModal();
+    showToast("Goals updated");
+  }
+
+  if (form.dataset.form === "account-setup") {
+    applyAccountSetup(data);
+    hideAccountSetup();
+    closeModal();
+    shouldOpenHome = true;
+    showToast("Your plan is ready");
+  }
+
   if (form.dataset.form === "notifications") {
     state.profile.notifications = data.has("notifications");
     state.profile.weeklySummary = data.has("weeklySummary");
@@ -1185,6 +1440,8 @@ document.addEventListener("submit", (event) => {
   }
 
   if (form.dataset.form === "preferences") {
+    state.profile.timezone = String(data.get("timezone") || state.profile.timezone);
+    state.profile.units = String(data.get("units") || state.profile.units);
     state.profile.assistantInsights = data.has("assistantInsights");
     state.profile.compactCards = data.has("compactCards");
     closeModal();
@@ -1193,6 +1450,7 @@ document.addEventListener("submit", (event) => {
 
   saveState();
   renderAll();
+  if (shouldOpenHome) openView("home");
 });
 
 document.querySelectorAll(".filter-chip").forEach((button) => {
