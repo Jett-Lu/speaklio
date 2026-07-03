@@ -1,11 +1,11 @@
-const STORAGE_KEY = "speaklio-offline-demo-v2";
+const STORAGE_KEY = "speaklio-state-v3";
 
 const iconPaths = {
   home: '<path d="M3 10.5 10 4l7 6.5"/><path d="M5 9.5V17h10V9.5"/><path d="M8.5 17v-5h3v5"/>',
   clock: '<circle cx="10" cy="10" r="7"/><path d="M10 6v4l2.8 1.8"/>',
   grid: '<rect x="3" y="3" width="5.5" height="5.5" rx="1"/><rect x="11.5" y="3" width="5.5" height="5.5" rx="1"/><rect x="3" y="11.5" width="5.5" height="5.5" rx="1"/><rect x="11.5" y="11.5" width="5.5" height="5.5" rx="1"/>',
   user: '<circle cx="10" cy="7" r="3"/><path d="M4 17c.7-2.7 2.7-4 6-4s5.3 1.3 6 4"/>',
-  settings: '<circle cx="10" cy="10" r="2.5"/><path d="m15.7 11.8 1.1.9-1.4 2.4-1.3-.5a6 6 0 0 1-1.6.9l-.2 1.4H9.5l-.2-1.4a6 6 0 0 1-1.6-.9l-1.3.5L5 12.7l1.1-.9a6 6 0 0 1 0-1.8L5 9.1l1.4-2.4 1.3.5a6 6 0 0 1 1.6-.9L9.5 5h2.8l.2 1.3a6 6 0 0 1 1.6.9l1.3-.5 1.4 2.4-1.1.9a6 6 0 0 1 0 1.8Z"/>',
+  settings: '<circle cx="10" cy="10" r="2.7"/><path d="M17 10c0-.36-.03-.71-.08-1.05l1.44-1.12-1.6-2.77-1.72.7a6.7 6.7 0 0 0-1.84-1.06L12.95 2h-5.9L6.8 4.7a6.7 6.7 0 0 0-1.84 1.06l-1.72-.7-1.6 2.77 1.44 1.12A7.4 7.4 0 0 0 3 10c0 .36.03.71.08 1.05l-1.44 1.12 1.6 2.77 1.72-.7a6.7 6.7 0 0 0 1.84 1.06l.25 2.7h5.9l.25-2.7a6.7 6.7 0 0 0 1.84-1.06l1.72.7 1.6-2.77-1.44-1.12c.05-.34.08-.69.08-1.05Z"/>',
   calendar: '<rect x="3" y="4.5" width="14" height="12.5" rx="2"/><path d="M6.5 3v3M13.5 3v3M3 8h14"/>',
   "chevron-down": '<path d="m6 8 4 4 4-4"/>',
   "chevron-right": '<path d="m8 5 5 5-5 5"/>',
@@ -22,6 +22,10 @@ const iconPaths = {
   shield: '<path d="M10 18s6-2.6 6-8V5l-6-2-6 2v5c0 5.4 6 8 6 8Z"/><path d="m7.5 10 1.7 1.7 3.4-3.4"/>',
   droplet: '<path d="M10 2.5s5 5.3 5 9a5 5 0 0 1-10 0c0-3.7 5-9 5-9Z"/>',
   heart: '<path d="M10 17s-6-3.6-6-8a3.5 3.5 0 0 1 6-2.4A3.5 3.5 0 0 1 16 9c0 4.4-6 8-6 8Z"/>',
+  camera: '<path d="M6.5 6.5 8 4.5h4l1.5 2H16a2 2 0 0 1 2 2V15a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8.5a2 2 0 0 1 2-2h2.5Z"/><circle cx="10" cy="11.5" r="3"/>',
+  watch: '<rect x="6" y="5" width="8" height="10" rx="3"/><path d="M8 5 8.5 2.5h3L12 5M8 15l.5 2.5h3L12 15"/><path d="M9 10.5h2"/>',
+  link: '<path d="M8.2 12.4 7 13.6a3 3 0 0 1-4.2-4.2L4 8.2"/><path d="m11.8 7.6 1.2-1.2a3 3 0 0 1 4.2 4.2L16 11.8"/><path d="m7.5 12.5 5-5"/>',
+  "log-out": '<path d="M8 4H5a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h3"/><path d="M12 6l4 4-4 4M16 10H7"/>',
 };
 
 const plugins = [
@@ -37,6 +41,7 @@ const pluginMap = Object.fromEntries(plugins.map((plugin) => [plugin.id, plugin]
 
 function makeDefaultState() {
   return {
+    authenticated: true,
     profile: {
       name: "Jordan Miller",
       email: "jordan@example.com",
@@ -53,6 +58,7 @@ function makeDefaultState() {
     mindfulness: { count: 3, title: "Evening reset", duration: 10 },
     installedPlugins: new Set(["nutrition", "finance", "sleep", "workout"]),
     activityFilter: "all",
+    activitySearch: "",
     activities: [
       { id: 1, plugin: "nutrition", title: "Logged avocado toast and coffee", detail: "Breakfast - 420 cal", time: "8:15 AM", day: "Today" },
       { id: 2, plugin: "sleep", title: "Sleep summary added", detail: "7h 42m - Good quality", time: "7:45 AM", day: "Today" },
@@ -74,6 +80,7 @@ function loadState() {
     return {
       ...defaults,
       ...saved,
+      authenticated: typeof saved.authenticated === "boolean" ? saved.authenticated : defaults.authenticated,
       profile: { ...defaults.profile, ...saved.profile },
       nutrition: { ...defaults.nutrition, ...saved.nutrition },
       finance: { ...defaults.finance, ...saved.finance },
@@ -82,6 +89,7 @@ function loadState() {
       hydration: { ...defaults.hydration, ...saved.hydration },
       mindfulness: { ...defaults.mindfulness, ...saved.mindfulness },
       installedPlugins: new Set(saved.installedPlugins || [...defaults.installedPlugins]),
+      activitySearch: typeof saved.activitySearch === "string" ? saved.activitySearch : defaults.activitySearch,
       activities: Array.isArray(saved.activities) ? saved.activities : defaults.activities,
       chats: Array.isArray(saved.chats) && saved.chats.length ? saved.chats : defaults.chats,
     };
@@ -104,6 +112,11 @@ const modal = document.getElementById("app-modal");
 const modalEyebrow = document.getElementById("modal-eyebrow");
 const modalTitle = document.getElementById("modal-title");
 const modalBody = document.getElementById("modal-body");
+const activitySearch = document.getElementById("activity-search");
+const assistantPreviewTitle = document.getElementById("assistant-preview-title");
+const assistantPreviewCopy = document.getElementById("assistant-preview-copy");
+const loginForm = document.getElementById("login-form");
+const loginEmail = document.getElementById("login-email");
 
 function escapeHtml(value) {
   return String(value)
@@ -148,7 +161,7 @@ function saveState() {
       installedPlugins: [...state.installedPlugins],
     }));
   } catch {
-    showToast("This browser could not save the latest local update.");
+    showToast("This browser could not save the latest update.");
   }
 }
 
@@ -173,6 +186,7 @@ function updateDateAndProfile() {
   document.getElementById("profile-name").textContent = state.profile.name;
   document.getElementById("profile-email").textContent = state.profile.email;
   document.querySelector(".mini-profile strong").textContent = state.profile.name;
+  if (loginEmail) loginEmail.value = state.profile.email;
   document.querySelectorAll(".avatar, .large-avatar").forEach((avatar) => {
     avatar.textContent = initials(state.profile.name);
   });
@@ -193,6 +207,32 @@ function updateDailyBalance() {
   document.getElementById("balance-ring-wrap").setAttribute("aria-label", `Daily balance score ${score}`);
   document.getElementById("balance-title").textContent = score >= 75 ? "You are doing well today" : "A few small wins will help";
   document.getElementById("balance-copy").textContent = `${onTrack} of ${metrics.length} daily goals are on track.`;
+}
+
+function updateInsightPanel() {
+  const proteinLeft = Math.max(0, 120 - state.nutrition.protein);
+  const budgetLeft = state.finance.budget - state.finance.spending;
+  const sleepAverage = state.sleep.week.reduce((sum, value) => sum + value, 0) / state.sleep.week.length;
+  const readiness = sleepAverage >= 420 && state.workout.completed >= Math.max(1, state.workout.goal - 1) ? "Good" : "Steady";
+
+  document.getElementById("next-action-title").textContent = proteinLeft
+    ? "Plan protein before dinner"
+    : "Keep dinner light and simple";
+  document.getElementById("next-action-copy").textContent = proteinLeft
+    ? `${proteinLeft}g protein left keeps today's nutrition balanced.`
+    : "You are on pace for nutrition today.";
+  document.getElementById("readiness-score").textContent = readiness;
+  document.getElementById("streak-count").textContent = `${Math.min(7, Math.max(1, state.activities.length))} days`;
+  document.getElementById("attention-nutrition-title").textContent = proteinLeft ? "Protein target" : "Nutrition pacing";
+  document.getElementById("attention-nutrition-copy").textContent = proteinLeft
+    ? `${proteinLeft}g left to reach today's goal.`
+    : "Macros are in a healthy range today.";
+  document.getElementById("attention-finance-title").textContent = budgetLeft >= 0 ? "Budget pace" : "Budget overrun";
+  document.getElementById("attention-finance-copy").textContent = budgetLeft >= 0
+    ? `$${formatMoney(budgetLeft)} left this month.`
+    : `$${formatMoney(Math.abs(budgetLeft))} over budget.`;
+  document.getElementById("agenda-workout-title").textContent = state.workout.title;
+  document.getElementById("agenda-workout-meta").textContent = `${state.workout.duration} minute workout`;
 }
 
 function updateMetrics() {
@@ -236,6 +276,7 @@ function updateMetrics() {
   document.getElementById("mindfulness-count").textContent = `${state.mindfulness.count} mindful moments`;
 
   document.body.classList.toggle("compact-mode", state.profile.compactCards);
+  updateInsightPanel();
   updateDailyBalance();
 }
 
@@ -254,6 +295,11 @@ function activityMarkup(item) {
 }
 
 function renderActivity() {
+  const searchTerm = state.activitySearch.trim().toLowerCase();
+  if (activitySearch && activitySearch.value !== state.activitySearch) {
+    activitySearch.value = state.activitySearch;
+  }
+
   document.querySelectorAll(".filter-chip").forEach((chip) => {
     chip.classList.toggle("active", chip.dataset.filter === state.activityFilter);
   });
@@ -261,9 +307,12 @@ function renderActivity() {
     ? state.activities.slice(0, 3).map(activityMarkup).join("")
     : '<p class="empty-state">Your latest updates will appear here.</p>';
 
-  const filtered = state.activityFilter === "all"
+  const byPlugin = state.activityFilter === "all"
     ? state.activities
     : state.activities.filter((item) => item.plugin === state.activityFilter);
+  const filtered = searchTerm
+    ? byPlugin.filter((item) => `${item.title} ${item.detail} ${item.plugin}`.toLowerCase().includes(searchTerm))
+    : byPlugin;
   const grouped = filtered.reduce((groups, item) => {
     groups[item.day] ||= [];
     groups[item.day].push(item);
@@ -278,9 +327,25 @@ function renderActivity() {
       </section>
     `)
     .join("") || '<p class="empty-state">No activity for this filter yet.</p>';
+  updateActivitySummary();
+}
+
+function updateActivitySummary() {
+  const todayCount = state.activities.filter((item) => item.day === "Today").length;
+  const countsByPlugin = state.activities.reduce((counts, item) => {
+    counts[item.plugin] = (counts[item.plugin] || 0) + 1;
+    return counts;
+  }, {});
+  const topPluginId = Object.entries(countsByPlugin).sort((a, b) => b[1] - a[1])[0]?.[0];
+  const topPlugin = topPluginId ? pluginMap[topPluginId]?.name || "Speaklio" : "None";
+
+  document.getElementById("activity-today-count").textContent = todayCount;
+  document.getElementById("activity-week-count").textContent = state.activities.length;
+  document.getElementById("activity-top-plugin").textContent = topPlugin;
 }
 
 function renderPlugins() {
+  document.getElementById("plugin-installed-count").textContent = `${state.installedPlugins.size} of ${plugins.length} active`;
   document.getElementById("plugin-store-grid").innerHTML = plugins.map((plugin) => {
     const installed = state.installedPlugins.has(plugin.id);
     return `
@@ -293,6 +358,10 @@ function renderPlugins() {
           </div>
         </div>
         <p>${plugin.description}</p>
+        <div class="store-card-meta">
+          <span>${installed ? "Configured" : "Ready to add"}</span>
+          <span>${plugin.id === "finance" ? "Private" : "Daily"}</span>
+        </div>
         <div class="store-card-actions">
           ${installed ? `<button class="store-detail-button" data-plugin-open="${plugin.id}">Open</button>` : ""}
           <button class="install-button ${installed ? "installed" : ""}" data-plugin-toggle="${plugin.id}">
@@ -318,12 +387,34 @@ function renderChats() {
   chatStream.scrollTop = chatStream.scrollHeight;
 }
 
+function renderAuthState() {
+  document.body.classList.toggle("signed-out", !state.authenticated);
+  if (loginEmail) loginEmail.value = state.profile.email;
+}
+
 function renderAll() {
+  renderAuthState();
   updateDateAndProfile();
   updateMetrics();
   renderActivity();
   renderPlugins();
   renderChats();
+}
+
+function signIn(email) {
+  state.authenticated = true;
+  if (email) state.profile.email = email;
+  saveState();
+  renderAll();
+  showToast("Signed in to Speaklio");
+}
+
+function signOut() {
+  state.authenticated = false;
+  closeModal();
+  hideAssistant();
+  saveState();
+  renderAuthState();
 }
 
 function addActivity(activity) {
@@ -342,6 +433,41 @@ function addMessage(text, sender) {
   if (state.chats.length > 20) state.chats = state.chats.slice(-20);
   saveState();
   renderChats();
+}
+
+function setAssistantPreview(title, copy) {
+  assistantPreviewTitle.textContent = title;
+  assistantPreviewCopy.textContent = copy;
+}
+
+function previewAssistantRequest(text) {
+  const lower = text.toLowerCase();
+  if (/(water|drank|hydrate|hydration)/.test(lower)) {
+    setAssistantPreview("Hydration entry", "Ready to add this amount to today's water total after confirmation.");
+    return;
+  }
+
+  if (/(spent|expense|paid|bought)/.test(lower)) {
+    setAssistantPreview("Finance entry", "Ready to create an expense with amount, category, and note.");
+    return;
+  }
+
+  if (/(sleep|slept|last night)/.test(lower)) {
+    setAssistantPreview("Sleep update", "Ready to update last night's duration and quality.");
+    return;
+  }
+
+  if (/(workout|exercise|training)/.test(lower)) {
+    setAssistantPreview("Workout plan", "Ready to save the workout name, time, and duration.");
+    return;
+  }
+
+  if (/(calories|nutrition|macros|eggs|toast|breakfast|lunch|dinner|snack|ate|meal)/.test(lower)) {
+    setAssistantPreview("Nutrition entry", "Ready to log the meal details and update today's nutrition totals.");
+    return;
+  }
+
+  setAssistantPreview("Needs review", "Speaklio needs one more detail before saving anything.");
 }
 
 function openView(viewName) {
@@ -387,6 +513,119 @@ function stat(label, value) {
   return `<div class="modal-stat"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`;
 }
 
+function insightNote(title, copy) {
+  return `
+    <div class="modal-insight">
+      ${iconMarkup("sparkles")}
+      <div>
+        <strong>${escapeHtml(title)}</strong>
+        <p>${escapeHtml(copy)}</p>
+      </div>
+    </div>
+  `;
+}
+
+function nutritionScanPanel() {
+  return `
+    <div class="scan-panel">
+      <div>
+        <p class="eyebrow">COMPUTER VISION</p>
+        <h3>Scan a meal or nutrition label</h3>
+        <p>Use camera capture to identify foods, estimate portions, and review calories before saving.</p>
+      </div>
+      <button class="wide-action-button" type="button" data-modal-action="open-nutrition-scan">
+        ${iconMarkup("camera")} Open scanner
+      </button>
+    </div>
+  `;
+}
+
+function openNutritionScan() {
+  openModal({
+    eyebrow: "NUTRITION SCAN",
+    title: "Meal scanner",
+    body: `
+      <div class="scan-modal-grid">
+        <section class="camera-frame" aria-label="Camera scanner preview">
+          <span class="scan-corner top-left"></span>
+          <span class="scan-corner top-right"></span>
+          <span class="scan-corner bottom-left"></span>
+          <span class="scan-corner bottom-right"></span>
+          ${iconMarkup("camera")}
+          <strong>Camera ready</strong>
+          <p>Frame the plate or nutrition label, then review the estimate before saving.</p>
+        </section>
+        <section class="scan-review">
+          <p class="eyebrow">DETECTED ITEMS</p>
+          <div class="scan-mode-row">
+            <button class="preset-button active" type="button">Meal photo</button>
+            <button class="preset-button" type="button">Nutrition label</button>
+            <button class="preset-button" type="button">Barcode</button>
+          </div>
+          <div class="detected-list">
+            <div><strong>Chicken rice bowl</strong><span>High confidence</span></div>
+            <div><strong>Avocado dressing</strong><span>Medium confidence</span></div>
+          </div>
+          <div class="scan-estimate-grid">
+            ${stat("Calories", "610")}
+            ${stat("Protein", "38g")}
+            ${stat("Carbs", "72g")}
+            ${stat("Fats", "18g")}
+          </div>
+          <div class="stacked-actions">
+            <button class="primary-button" type="button" data-modal-action="save-scan-estimate">Save estimate</button>
+            <button class="secondary-button" type="button" data-modal-action="capture-meal-frame">Capture again</button>
+          </div>
+        </section>
+      </div>
+    `,
+  });
+}
+
+function saveScannedMealEstimate() {
+  state.nutrition.calories += 610;
+  state.nutrition.protein += 38;
+  state.nutrition.carbs += 72;
+  state.nutrition.fats += 18;
+  addActivity({ plugin: "nutrition", title: "Saved meal scan estimate", detail: "Chicken rice bowl - 610 cal" });
+  saveState();
+  renderAll();
+  closeModal();
+  showToast("Meal estimate saved to Nutrition");
+}
+
+function openIntegration(integrationId) {
+  const isWatch = integrationId === "apple-watch";
+  openModal({
+    eyebrow: "CONNECTED HEALTH",
+    title: isWatch ? "Apple Watch" : "Apple Health",
+    body: `
+      <div class="integration-detail">
+        <span class="plugin-icon workout">${iconMarkup(isWatch ? "watch" : "link")}</span>
+        <div>
+          <h3>${isWatch ? "Connect Apple Watch data through Apple Health" : "Connect Apple Health"}</h3>
+          <p>${isWatch
+            ? "Speaklio uses Apple Health permissions to bring Watch activity, workout, heart-rate, and recovery signals into your dashboard."
+            : "Choose exactly which health categories Speaklio can read and write, then use those signals to improve daily tracking."}</p>
+        </div>
+      </div>
+      <div class="permission-grid">
+        ${stat("Activity", "Steps, rings")}
+        ${stat("Workouts", "Sessions")}
+        ${stat("Recovery", "Sleep, heart")}
+      </div>
+      <div class="permission-list">
+        <div><strong>Read permissions</strong><span>Steps, workouts, heart rate, sleep, active energy, mindful minutes.</span></div>
+        <div><strong>Write permissions</strong><span>Nutrition summaries, water, workouts, and mindful moments when enabled.</span></div>
+      </div>
+      <div class="stacked-actions">
+        <button class="primary-button" type="button" data-modal-action="connect-health">Connect ${isWatch ? "Apple Watch" : "Apple Health"}</button>
+        <button class="secondary-button" type="button" data-modal-action="close">Not now</button>
+      </div>
+    `,
+  });
+}
+
 function openPlugin(pluginId) {
   const plugin = pluginMap[pluginId];
   if (!plugin) return;
@@ -404,6 +643,8 @@ function openPlugin(pluginId) {
         ${stat("Protein", `${state.nutrition.protein}g`)}
         ${stat("Carbs", `${state.nutrition.carbs}g`)}
       </div>
+      ${insightNote("Protein is the lever", "A protein-forward dinner would make today's nutrition feel complete without pushing calories too high.")}
+      ${nutritionScanPanel()}
       <form class="quick-form" data-form="meal">
         <h3>Log a meal</h3>
         <label>Meal description<input required name="description" placeholder="Eggs and toast" /></label>
@@ -421,6 +662,7 @@ function openPlugin(pluginId) {
         ${stat("Monthly budget", `$${formatMoney(state.finance.budget)}`)}
         ${stat("Remaining", `$${formatMoney(state.finance.budget - state.finance.spending)}`)}
       </div>
+      ${insightNote("Budget pace looks stable", "You are still under budget. Keep dining entries specific so weekly summaries stay useful.")}
       <form class="quick-form" data-form="expense">
         <h3>Log an expense</h3>
         <div class="form-grid">
@@ -436,6 +678,7 @@ function openPlugin(pluginId) {
         ${stat("Quality", state.sleep.quality)}
         ${stat("Weekly average", formatMinutes(state.sleep.week.reduce((sum, value) => sum + value, 0) / state.sleep.week.length))}
       </div>
+      ${insightNote("Consistency beats perfection", "Your best nights cluster around similar bedtimes. Speaklio can use that rhythm for smarter reminders.")}
       <form class="quick-form" data-form="sleep">
         <h3>Log last night's sleep</h3>
         <div class="form-grid">
@@ -450,6 +693,7 @@ function openPlugin(pluginId) {
         ${stat("When", state.workout.time)}
         ${stat("Weekly progress", `${state.workout.completed} / ${state.workout.goal}`)}
       </div>
+      ${insightNote("One session to go", "Completing the next workout will close your weekly goal and lift the balance score.")}
       <button class="wide-action-button" data-modal-action="complete-workout">${iconMarkup("bolt")} Mark current workout complete</button>
       <form class="quick-form" data-form="workout">
         <h3>Plan your next workout</h3>
@@ -466,6 +710,7 @@ function openPlugin(pluginId) {
         ${stat("Daily goal", `${(state.hydration.goal / 1000).toFixed(1)} L`)}
         ${stat("Remaining", `${(Math.max(0, state.hydration.goal - state.hydration.ml) / 1000).toFixed(1)} L`)}
       </div>
+      ${insightNote("Small sips count", "Quick presets make this plugin feel fast now and easy to wire to real entries later.")}
       <div class="quick-form">
         <h3>Add water</h3>
         <div class="preset-row">
@@ -480,9 +725,10 @@ function openPlugin(pluginId) {
         ${stat("Suggested", state.mindfulness.title)}
         ${stat("Default session", `${state.mindfulness.duration} min`)}
       </div>
+      ${insightNote("Keep it lightweight", "Mindfulness should stay low-friction: choose a duration, complete it, and move on.")}
       <div class="quick-form">
         <h3>Complete a mindful moment</h3>
-        <p>Choose a short breathing session. Speaklio will log it as completed for this offline demo.</p>
+        <p>Choose a short breathing session. Speaklio will log it as completed.</p>
         <div class="preset-row">
           <button class="preset-button" data-modal-action="complete-mindfulness" data-amount="5">5 min</button>
           <button class="preset-button" data-modal-action="complete-mindfulness" data-amount="10">10 min</button>
@@ -588,12 +834,39 @@ function openProfileAction(action) {
       title: "Privacy and data",
       body: `
         <div class="modal-notice">
-          <strong>Your demo data stays in this browser.</strong>
-          <p>This prototype uses local storage only. It does not send your health or financial information to a server.</p>
+          <strong>You control what Speaklio can use.</strong>
+          <p>Review export, reset, and connected-app controls for your account data.</p>
         </div>
         <div class="stacked-actions">
-          <button class="wide-action-button" data-modal-action="export-data">Export my local data</button>
-          <button class="danger-button" data-modal-action="confirm-reset">Reset demo data</button>
+          <button class="wide-action-button" data-modal-action="export-data">Export my data</button>
+          <button class="danger-button" data-modal-action="confirm-reset">Reset account data</button>
+        </div>
+      `,
+    });
+  }
+
+  if (action === "integrations") {
+    openModal({
+      eyebrow: "CONNECTED HEALTH",
+      title: "Apps and devices",
+      body: `
+        <div class="integration-grid modal-integration-grid">
+          <article class="integration-card">
+            <span class="plugin-icon workout">${iconMarkup("watch")}</span>
+            <div>
+              <strong>Apple Health</strong>
+              <small>Steps, workouts, heart rate, sleep, and mindful minutes.</small>
+            </div>
+            <button class="store-detail-button" type="button" data-integration-action="apple-health">Connect</button>
+          </article>
+          <article class="integration-card">
+            <span class="plugin-icon hydration">${iconMarkup("link")}</span>
+            <div>
+              <strong>Apple Watch</strong>
+              <small>Activity rings and recovery trends through Apple Health.</small>
+            </div>
+            <button class="store-detail-button" type="button" data-integration-action="apple-watch">Review</button>
+          </article>
         </div>
       `,
     });
@@ -605,7 +878,7 @@ function openProfileAction(action) {
       title: "Preferences",
       body: `
         <form class="quick-form" data-form="preferences">
-          <label class="toggle-row"><span><strong>Assistant insights</strong><small>Let the demo offer simple proactive suggestions.</small></span><input name="assistantInsights" type="checkbox" ${state.profile.assistantInsights ? "checked" : ""} /></label>
+          <label class="toggle-row"><span><strong>Assistant insights</strong><small>Let Speaklio offer simple proactive suggestions.</small></span><input name="assistantInsights" type="checkbox" ${state.profile.assistantInsights ? "checked" : ""} /></label>
           <label class="toggle-row"><span><strong>Compact dashboard cards</strong><small>Reduce spacing when you want a denser overview.</small></span><input name="compactCards" type="checkbox" ${state.profile.compactCards ? "checked" : ""} /></label>
           <button class="primary-button" type="submit">Save preferences</button>
         </form>
@@ -620,20 +893,20 @@ function exportData() {
   const url = URL.createObjectURL(new Blob([payload], { type: "application/json" }));
   const link = document.createElement("a");
   link.href = url;
-  link.download = "speaklio-demo-data.json";
+  link.download = "speaklio-data.json";
   document.body.appendChild(link);
   link.click();
   link.remove();
   URL.revokeObjectURL(url);
-  showToast("Local demo data exported");
+  showToast("Speaklio data exported");
 }
 
-function resetDemo() {
+function resetAccountData() {
   state = makeDefaultState();
   saveState();
   renderAll();
   closeModal();
-  showToast("Demo data reset");
+  showToast("Account data reset");
 }
 
 function ensureInstalled(pluginId) {
@@ -656,6 +929,7 @@ function processRequest(rawText) {
   const lower = text.toLowerCase();
   if (!text) return;
   addMessage(text, "user");
+  previewAssistantRequest(text);
   input.value = "";
 
   setTimeout(() => {
@@ -709,7 +983,7 @@ function processRequest(rawText) {
       if (!ensureInstalled("finance")) return;
       const amountMatch = lower.match(/\$?\s*(\d+(?:\.\d{1,2})?)/);
       if (!amountMatch) {
-        addMessage("Tell me the amount and I will add that expense. For example: “I spent $18 on groceries.”", "assistant");
+        addMessage('Tell me the amount and I will add that expense. For example: "I spent $18 on groceries."', "assistant");
         return;
       }
       const amount = Number(amountMatch[1]);
@@ -768,11 +1042,14 @@ function processRequest(rawText) {
       return;
     }
 
-    addMessage("I am running offline, so I can handle the demo basics: meals, expenses, sleep, workouts, water, and mindful moments. Try asking for help to see examples.", "assistant");
+    addMessage("I can help with meals, expenses, sleep, workouts, water, and mindful moments. Ask for a summary or tell me what to log.", "assistant");
   }, 350);
 }
 
 document.addEventListener("click", (event) => {
+  const authAction = event.target.closest("[data-auth-action]");
+  if (authAction?.dataset.authAction === "sign-out") signOut();
+
   const viewButton = event.target.closest("[data-view]");
   if (viewButton) openView(viewButton.dataset.view);
 
@@ -790,9 +1067,22 @@ document.addEventListener("click", (event) => {
     logMindfulness(state.mindfulness.duration);
     openPlugin("mindfulness");
   }
+  if (pluginAction?.dataset.pluginAction === "nutrition-scan") {
+    openNutritionScan();
+  }
+
+  const integrationAction = event.target.closest("[data-integration-action]");
+  if (integrationAction) openIntegration(integrationAction.dataset.integrationAction);
 
   const profileAction = event.target.closest("[data-profile-action]");
   if (profileAction) openProfileAction(profileAction.dataset.profileAction);
+
+  const assistantAction = event.target.closest("[data-assistant-action]");
+  if (assistantAction) {
+    showToast(assistantAction.dataset.assistantAction === "confirm"
+      ? "Action confirmed"
+      : "Action ready to edit");
+  }
 
   const modalAction = event.target.closest("[data-modal-action]");
   if (!modalAction) return;
@@ -810,6 +1100,10 @@ document.addEventListener("click", (event) => {
     completeWorkout();
     openPlugin("workout");
   }
+  if (action === "open-nutrition-scan") openNutritionScan();
+  if (action === "capture-meal-frame") showToast("Meal scan captured");
+  if (action === "save-scan-estimate") saveScannedMealEstimate();
+  if (action === "connect-health") showToast("Health connection flow opened");
   if (action === "open-store") {
     closeModal();
     openView("plugins");
@@ -817,18 +1111,18 @@ document.addEventListener("click", (event) => {
   if (action === "export-data") exportData();
   if (action === "confirm-reset") {
     openModal({
-      eyebrow: "RESET DEMO",
+      eyebrow: "RESET DATA",
       title: "Start fresh?",
       body: `
-        <div class="modal-notice"><p>This clears the local demo updates and restores the example dashboard. Nothing is sent anywhere.</p></div>
+        <div class="modal-notice"><p>This clears your account timeline and restores the starter dashboard.</p></div>
         <div class="stacked-actions">
-          <button class="danger-button" data-modal-action="reset-demo">Reset local data</button>
+          <button class="danger-button" data-modal-action="reset-account-data">Reset account data</button>
           <button class="secondary-button" data-modal-action="close">Keep my data</button>
         </div>
       `,
     });
   }
-  if (action === "reset-demo") resetDemo();
+  if (action === "reset-account-data") resetAccountData();
 });
 
 document.addEventListener("submit", (event) => {
@@ -910,6 +1204,18 @@ document.querySelectorAll(".filter-chip").forEach((button) => {
   });
 });
 
+activitySearch.addEventListener("input", () => {
+  state.activitySearch = activitySearch.value;
+  saveState();
+  renderActivity();
+});
+
+loginForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const data = new FormData(loginForm);
+  signIn(String(data.get("email") || state.profile.email));
+});
+
 document.querySelectorAll(".suggestion-chip").forEach((button) => {
   button.addEventListener("click", () => processRequest(button.textContent));
 });
@@ -928,7 +1234,7 @@ document.getElementById("clear-activity-button").addEventListener("click", () =>
     eyebrow: "ACTIVITY",
     title: "Clear activity history?",
     body: `
-      <div class="modal-notice"><p>This removes your local timeline updates. Your dashboard totals will stay the same.</p></div>
+      <div class="modal-notice"><p>This removes your activity timeline updates. Your dashboard totals will stay the same.</p></div>
       <div class="stacked-actions">
         <button class="danger-button" data-modal-action="clear-activity">Clear activity</button>
         <button class="secondary-button" data-modal-action="close">Cancel</button>
@@ -960,7 +1266,7 @@ micButton.addEventListener("click", () => {
     setTimeout(() => {
       micButton.classList.remove("listening");
       input.placeholder = "Ask Speaklio anything...";
-      showToast("Voice demo used. Browser speech recognition is unavailable.");
+      showToast("Voice input is unavailable in this browser.");
       processRequest("I had eggs and toast for breakfast");
     }, 1100);
     return;
