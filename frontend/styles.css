@@ -2041,6 +2041,15 @@ body.signed-out .app-shell {
   line-height: 1.5;
 }
 
+.quick-form .field-note {
+  margin-top: -5px;
+  font-size: 10px;
+}
+
+.form-grid .field-note {
+  grid-column: 1 / -1;
+}
+
 .quick-form label {
   display: grid;
   gap: 4px;
@@ -2060,6 +2069,11 @@ body.signed-out .app-shell {
   outline: 0;
   background: var(--panel);
   font-size: 12px;
+}
+
+.quick-form input[readonly] {
+  color: var(--ink-soft);
+  background: #eef2f6;
 }
 
 .quick-form input:focus,

@@ -27,6 +27,7 @@ Started on July 18, 2026:
 - Changed signed-in `speaklio-state-v3` persistence to store only local UI state instead of backend-owned profile, plugin, metric, and activity data.
 - Added a visible backend refresh failure banner with retry, and stopped clearing the saved session on startup API failures.
 - Reset local state on sign-out so signed-in dashboard data is not written back into signed-out local storage.
+- Made profile email read-only for signed-in users and stopped profile saves from mutating local auth email until an email-change confirmation flow exists.
 
 ## Goal
 

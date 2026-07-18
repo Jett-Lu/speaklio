@@ -295,6 +295,17 @@ function integrationCardMarkup(integrationId) {
   `;
 }
 
+function accountEmailField() {
+  if (!state.authenticated) {
+    return `<label>Email<input required name="email" type="email" value="${escapeHtml(state.profile.email)}" /></label>`;
+  }
+
+  return `
+    <label>Email<input name="email" type="email" value="${escapeHtml(state.profile.email)}" readonly aria-describedby="account-email-note" /></label>
+    <p class="field-note" id="account-email-note">This is your sign-in email. Email change confirmation is not available yet.</p>
+  `;
+}
+
 function getTailoredGoals({ weightKg, primaryGoal, activityLevel }) {
   const activityMultipliers = { light: 28, moderate: 31, active: 34, athlete: 38 };
   const goalAdjustments = { lose: -350, maintain: 0, gain: 250, performance: 150 };
@@ -1374,7 +1385,9 @@ function openIntegration(integrationId) {
 
 function applyAccountSetup(data) {
   const name = String(data.get("name") || state.profile.name).trim() || state.profile.name;
-  const email = String(data.get("email") || state.profile.email).trim() || state.profile.email;
+  const email = state.authenticated
+    ? state.profile.email
+    : String(data.get("email") || state.profile.email).trim() || state.profile.email;
   const age = Number(data.get("age") || state.profile.personal.age);
   const heightCm = Number(data.get("heightCm") || state.profile.personal.heightCm);
   const weightKg = Number(data.get("weightKg") || state.profile.personal.weightKg);
@@ -1627,7 +1640,7 @@ function openProfileAction(action) {
       body: `
         <form class="quick-form" data-form="profile">
           <label>Name<input required name="name" value="${escapeHtml(state.profile.name)}" /></label>
-          <label>Email<input required name="email" type="email" value="${escapeHtml(state.profile.email)}" /></label>
+          ${accountEmailField()}
           <button class="primary-button" type="submit">Save profile</button>
         </form>
       `,
@@ -1693,7 +1706,7 @@ function openProfileAction(action) {
         <form class="quick-form" data-form="account-setup">
           <div class="form-grid">
             <label>Name<input required name="name" value="${escapeHtml(state.profile.name)}" /></label>
-            <label>Email<input required name="email" type="email" value="${escapeHtml(state.profile.email)}" /></label>
+            ${accountEmailField()}
             <label>Age<input required name="age" type="number" min="13" max="120" value="${personal.age}" /></label>
             <label>Activity level<select name="activityLevel">
               ${optionMarkup("light", "Light", personal.activityLevel)}
@@ -2193,8 +2206,7 @@ document.addEventListener("submit", async (event) => {
   }
 
   if (form.dataset.form === "profile") {
-    state.profile.name = String(data.get("name"));
-    state.profile.email = String(data.get("email"));
+    state.profile.name = String(data.get("name") || state.profile.name).trim() || state.profile.name;
     await saveProfileSettings({ displayName: state.profile.name });
     closeModal();
     showToast("Profile updated");
