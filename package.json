@@ -9,6 +9,7 @@
   "scripts": {
     "backend:dev": "npm --prefix backend run dev",
     "backend:build": "npm --prefix backend run build",
+    "backend:test": "npm --prefix backend run test",
     "backend:typecheck": "npm --prefix backend run typecheck",
     "backend:start": "npm --prefix backend run start",
     "frontend:dev": "node frontend/server.js",

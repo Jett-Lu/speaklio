@@ -17,6 +17,62 @@
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
+    <main class="auth-screen" id="auth-screen" aria-label="Sign in to Speaklio">
+      <section class="auth-card">
+        <div class="auth-brand">
+          <div class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 40 40" fill="none">
+              <path d="M20 7.5c-7 0-12 4.55-12 10.5 0 3.36 1.67 6.32 4.35 8.24L11 31.8l5.64-3.24c1.07.28 2.2.44 3.36.44 7 0 12-4.55 12-10.5S27 7.5 20 7.5Z" fill="currentColor"/>
+              <path d="M15.2 19.5h9.6M17.4 15.8h5.2M17.4 23.2h5.2" stroke="white" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <span>Speaklio</span>
+        </div>
+        <div class="auth-copy">
+          <p class="eyebrow">WELCOME BACK</p>
+          <h1>Sign in to Speaklio</h1>
+          <p>Enter your email to continue.</p>
+        </div>
+        <form class="auth-form" id="login-form">
+          <label for="login-email">Email</label>
+          <input id="login-email" name="email" type="email" autocomplete="email" required />
+          <button class="primary-button" type="submit">Send code</button>
+        </form>
+        <section class="otp-panel" id="otp-panel" hidden>
+          <p id="auth-status">Check Mailpit for your sign-in code.</p>
+          <form class="auth-form" id="otp-form">
+            <label for="login-code">Code</label>
+            <input id="login-code" name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" required />
+            <button class="primary-button" type="submit">Verify code</button>
+          </form>
+        </section>
+        <div class="auth-actions">
+          <button class="text-button" type="button" data-auth-action="start-setup">Create a new account</button>
+        </div>
+        <section class="account-setup-panel" id="account-setup-panel" hidden>
+          <div class="section-title-row compact">
+            <div>
+              <p class="eyebrow">NEW ACCOUNT</p>
+              <h2>Set up your plan</h2>
+            </div>
+            <button class="text-button" type="button" data-auth-action="back-to-login">Back</button>
+          </div>
+          <form class="quick-form account-setup-form" data-form="account-setup">
+            <div class="form-grid">
+              <label>Name<input required name="name" autocomplete="name" /></label>
+              <label>Email<input required name="email" type="email" autocomplete="email" /></label>
+              <label>Age<input required name="age" type="number" min="13" max="120" /></label>
+              <label>Activity level<select name="activityLevel"><option value="light">Light</option><option value="moderate" selected>Moderate</option><option value="active">Active</option><option value="athlete">Athlete</option></select></label>
+              <label>Height (cm)<input required name="heightCm" type="number" min="100" max="240" /></label>
+              <label>Weight (kg)<input required name="weightKg" type="number" min="30" max="250" step="0.1" /></label>
+            </div>
+            <label>Primary goal<select name="primaryGoal"><option value="maintain">Maintain weight</option><option value="lose">Lose fat</option><option value="gain">Build muscle</option><option value="performance">Improve performance</option></select></label>
+            <button class="primary-button" type="submit">Create my plan</button>
+          </form>
+        </section>
+      </section>
+    </main>
+
     <div class="app-shell">
       <aside class="sidebar">
         <div class="brand">
@@ -50,15 +106,20 @@
 
         <div class="sidebar-bottom">
           <div class="mini-profile">
-            <div class="avatar">JM</div>
+            <div class="avatar">SP</div>
             <div>
-              <strong>Jordan Miller</strong>
-              <span>Free plan</span>
+              <strong>Speaklio</strong>
+              <span>Account</span>
             </div>
           </div>
-          <button class="icon-button" aria-label="Settings" data-profile-action="preferences">
-            <span class="icon" data-icon="settings"></span>
-          </button>
+          <div class="sidebar-actions">
+            <button class="icon-button" aria-label="Settings" data-profile-action="preferences">
+              <span class="icon" data-icon="settings"></span>
+            </button>
+            <button class="icon-button" aria-label="Sign out" data-auth-action="sign-out">
+              <span class="icon" data-icon="log-out"></span>
+            </button>
+          </div>
         </div>
       </aside>
 
@@ -73,14 +134,22 @@
             </div>
             <span>Speaklio</span>
           </div>
-          <button class="avatar avatar-button" aria-label="Open profile" data-view-trigger="profile">JM</button>
+          <button class="avatar avatar-button" aria-label="Open profile" data-view-trigger="profile">SP</button>
         </header>
+
+        <section class="backend-status" id="backend-status" hidden>
+          <div>
+            <strong>Unable to refresh backend data</strong>
+            <span id="backend-status-copy">Your session is still saved. Try again when the local API is running.</span>
+          </div>
+          <button class="secondary-button" type="button" data-backend-action="retry">Retry</button>
+        </section>
 
         <section class="view active" id="home-view">
           <header class="page-heading home-heading">
             <div>
               <p class="eyebrow" id="current-date">TODAY</p>
-              <h1 id="greeting">Good evening, Jordan.</h1>
+              <h1 id="greeting">Welcome to Speaklio.</h1>
               <p class="heading-copy">Here is a simple look at your day.</p>
             </div>
             <button class="quiet-button desktop-only" id="week-summary-button">
@@ -95,17 +164,41 @@
               <span class="status-dot"></span>
               <div>
                 <p>YOUR DAILY BALANCE</p>
-                <h2 id="balance-title">You are doing well today</h2>
-                <span id="balance-copy">3 of 4 daily goals are on track.</span>
+                <h2 id="balance-title">Loading your day</h2>
+                <span id="balance-copy">Your real progress appears after Speaklio refreshes.</span>
               </div>
             </div>
-            <div class="score-ring" id="balance-ring-wrap" aria-label="Daily balance score 82">
+            <div class="score-ring" id="balance-ring-wrap" aria-label="Daily balance score 0">
               <svg viewBox="0 0 80 80" aria-hidden="true">
                 <circle cx="40" cy="40" r="32" pathLength="100"></circle>
                 <circle class="progress" id="balance-ring" cx="40" cy="40" r="32" pathLength="100"></circle>
               </svg>
-              <strong id="balance-score">82</strong>
+              <strong id="balance-score">0</strong>
             </div>
+          </section>
+
+          <section class="insight-grid" aria-label="Daily insights">
+            <article class="insight-card primary">
+              <span class="plugin-icon workout"><span class="icon" data-icon="bolt"></span></span>
+              <div>
+                <p class="eyebrow">NEXT BEST ACTION</p>
+                <h2 id="next-action-title">Loading next action</h2>
+                <span id="next-action-copy">Speaklio will suggest one after your dashboard refreshes.</span>
+              </div>
+              <button class="round-action" aria-label="Open nutrition details" data-plugin-open="nutrition">
+                <span class="icon" data-icon="arrow-right"></span>
+              </button>
+            </article>
+            <article class="insight-card">
+              <p class="eyebrow">READINESS</p>
+              <strong id="readiness-score">Not logged</strong>
+              <span>Sleep and workout readiness appears after you log data.</span>
+            </article>
+            <article class="insight-card">
+              <p class="eyebrow">STREAK</p>
+              <strong id="streak-count">0 days</strong>
+              <span>Your streak appears after your first check-in.</span>
+            </article>
           </section>
 
           <div class="section-title-row">
@@ -125,22 +218,27 @@
               </div>
               <div class="metric-primary">
                 <div>
-                  <strong id="calorie-count">1,420</strong>
-                  <span>of 2,100 cal</span>
+                  <strong id="calorie-count">0</strong>
+                  <span id="nutrition-goal-copy">of 0 cal</span>
                 </div>
-                <div class="mini-ring nutrition-ring" aria-label="68 percent of calorie goal">
+                <div class="mini-ring nutrition-ring" id="nutrition-ring-wrap" aria-label="0 percent of calorie goal">
                   <svg viewBox="0 0 54 54" aria-hidden="true">
                     <circle cx="27" cy="27" r="21" pathLength="100"></circle>
                     <circle class="progress" id="nutrition-ring" cx="27" cy="27" r="21" pathLength="100"></circle>
                   </svg>
-                  <span id="nutrition-percent">68%</span>
+                  <span id="nutrition-percent">0%</span>
                 </div>
               </div>
               <div class="macro-row">
-                <span><b id="protein-count">72g</b> protein</span>
-                <span><b id="carbs-count">164g</b> carbs</span>
-                <span><b id="fats-count">54g</b> fats</span>
+                <span><b id="protein-count">0g</b> protein</span>
+                <span><b id="carbs-count">0g</b> carbs</span>
+                <span><b id="fats-count">0g</b> fats</span>
+                <span><b id="fiber-count">0g</b> fiber</span>
               </div>
+              <button class="scan-meal-button" type="button" data-plugin-action="nutrition-scan">
+                <span class="icon" data-icon="camera"></span>
+                <span>Scan meal</span>
+              </button>
             </article>
 
             <article class="metric-card finance-card" data-plugin-card="finance">
@@ -151,17 +249,17 @@
               </div>
               <div class="metric-primary">
                 <div>
-                  <strong id="spending-count">$1,264</strong>
+                  <strong id="spending-count">$0</strong>
                   <span>spent this month</span>
                 </div>
-                <span class="trend positive" id="finance-trend">12% under</span>
+                <span class="trend positive" id="finance-trend">0% left</span>
               </div>
               <div class="progress-bar">
                 <span id="finance-progress"></span>
               </div>
               <div class="card-footer">
                 <span>Monthly budget</span>
-                <strong id="budget-left">$736 left</strong>
+                <strong id="budget-left">$0 left</strong>
               </div>
             </article>
 
@@ -173,19 +271,19 @@
               </div>
               <div class="metric-primary">
                 <div>
-                  <strong id="sleep-count">7h 42m</strong>
+                  <strong id="sleep-count">0h 0m</strong>
                   <span>last night</span>
                 </div>
-                <span class="quality-badge" id="sleep-quality">Good</span>
+                <span class="quality-badge" id="sleep-quality">Not logged</span>
               </div>
               <div class="sleep-bars" aria-label="Weekly sleep chart">
-                <span style="height: 54%"></span>
-                <span style="height: 68%"></span>
-                <span style="height: 80%"></span>
-                <span style="height: 61%"></span>
-                <span style="height: 74%"></span>
-                <span style="height: 85%"></span>
-                <span class="today" style="height: 77%"></span>
+                <span></span>
+                <span></span>
+                <span></span>
+                <span></span>
+                <span></span>
+                <span></span>
+                <span class="today"></span>
               </div>
               <div class="days-row">
                 <span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span><span>S</span>
@@ -200,8 +298,8 @@
               </div>
               <div class="workout-next">
                 <div>
-                  <strong id="workout-title">Upper body strength</strong>
-                  <span id="workout-time">Tomorrow, 7:30 AM</span>
+                  <strong id="workout-title">No workout planned</strong>
+                  <span id="workout-time">Not scheduled</span>
                 </div>
                 <button class="round-action" aria-label="View workout" data-plugin-open="workout">
                   <span class="icon" data-icon="arrow-right"></span>
@@ -209,7 +307,7 @@
               </div>
               <div class="card-footer">
                 <span>Weekly goal</span>
-                <strong id="workout-goal">3 of 4 sessions</strong>
+                <strong id="workout-goal">0 of 0 sessions</strong>
               </div>
             </article>
 
@@ -221,17 +319,17 @@
               </div>
               <div class="metric-primary">
                 <div>
-                  <strong id="hydration-count">1.4 L</strong>
-                  <span id="hydration-goal-copy">of 2.5 L today</span>
+                  <strong id="hydration-count">0.0 L</strong>
+                  <span id="hydration-goal-copy">of 0.0 L today</span>
                 </div>
-                <span class="trend hydration-trend" id="hydration-percent">56%</span>
+                <span class="trend hydration-trend" id="hydration-percent">0%</span>
               </div>
               <div class="progress-bar hydration-progress">
                 <span id="hydration-progress"></span>
               </div>
               <div class="card-footer">
                 <span>Daily goal</span>
-                <strong id="hydration-left">1.1 L left</strong>
+                <strong id="hydration-left">0.0 L left</strong>
               </div>
             </article>
 
@@ -243,7 +341,7 @@
               </div>
               <div class="workout-next">
                 <div>
-                  <strong id="mindfulness-title">Evening reset</strong>
+                  <strong id="mindfulness-title">Mindful moment</strong>
                   <span id="mindfulness-time">10-minute guided breathing</span>
                 </div>
                 <button class="round-action mindfulness-action" aria-label="Start mindfulness session" data-plugin-action="mindfulness-start">
@@ -252,7 +350,52 @@
               </div>
               <div class="card-footer">
                 <span>This week</span>
-                <strong id="mindfulness-count">3 mindful moments</strong>
+                <strong id="mindfulness-count">0 mindful moments</strong>
+              </div>
+            </article>
+          </section>
+
+          <section class="focus-grid" aria-label="Daily focus">
+            <article class="panel-section">
+              <div class="section-title-row compact">
+                <div>
+                  <p class="eyebrow">SCHEDULE</p>
+                  <h2>Today at a glance</h2>
+                </div>
+              </div>
+              <div class="agenda-list" id="agenda-list">
+                <p class="empty-state">Your agenda appears after your dashboard refreshes.</p>
+              </div>
+            </article>
+            <article class="panel-section">
+              <div class="section-title-row compact">
+                <div>
+                  <p class="eyebrow">GOALS</p>
+                  <h2>Needs attention</h2>
+                </div>
+              </div>
+              <div class="attention-list">
+                <div class="attention-item">
+                  <span class="attention-dot nutrition"></span>
+                  <div>
+                    <strong id="attention-nutrition-title">Protein target</strong>
+                    <small id="attention-nutrition-copy">48g left to reach today's goal.</small>
+                  </div>
+                </div>
+                <div class="attention-item">
+                  <span class="attention-dot finance"></span>
+                  <div>
+                    <strong id="attention-finance-title">Budget pace</strong>
+                    <small id="attention-finance-copy">You still have room this month.</small>
+                  </div>
+                </div>
+                <div class="attention-item">
+                  <span class="attention-dot sleep"></span>
+                  <div>
+                    <strong id="attention-sleep-title">Sleep consistency</strong>
+                    <small id="attention-sleep-copy">Sleep insights appear after you log rest.</small>
+                  </div>
+                </div>
               </div>
             </article>
           </section>
@@ -278,6 +421,28 @@
             </div>
             <button class="quiet-button" id="clear-activity-button">Clear activity</button>
           </header>
+          <section class="activity-summary-grid" aria-label="Activity summary">
+            <article class="mini-stat">
+              <span>Today</span>
+              <strong id="activity-today-count">2</strong>
+              <small>updates logged</small>
+            </article>
+            <article class="mini-stat">
+              <span>This week</span>
+              <strong id="activity-week-count">5</strong>
+              <small>total updates</small>
+            </article>
+            <article class="mini-stat">
+              <span>Top area</span>
+              <strong id="activity-top-plugin">Nutrition</strong>
+              <small>most active plugin</small>
+            </article>
+          </section>
+          <div class="search-row">
+            <span class="icon" data-icon="sparkles"></span>
+            <label class="sr-only" for="activity-search">Search activity</label>
+            <input id="activity-search" type="search" placeholder="Search activity..." autocomplete="off" />
+          </div>
           <div class="filter-row" role="tablist" aria-label="Activity filters">
             <button class="filter-chip active" data-filter="all">All</button>
             <button class="filter-chip" data-filter="nutrition">Nutrition</button>
@@ -302,6 +467,18 @@
             <span class="icon" data-icon="sparkles"></span>
             <p><strong>Build your own dashboard.</strong> Add or remove a plugin anytime. Your home view stays focused on what matters to you.</p>
           </div>
+          <section class="plugin-showcase" aria-label="Plugin setup status">
+            <article>
+              <p class="eyebrow">SETUP</p>
+              <strong id="plugin-installed-count">0 of 0 active</strong>
+              <span>Your dashboard is tuned for everyday tracking.</span>
+            </article>
+            <article>
+              <p class="eyebrow">RECOMMENDED</p>
+              <strong>Hydration</strong>
+              <span>Add water tracking to improve the daily balance score.</span>
+            </article>
+          </section>
           <section class="plugin-store-grid" id="plugin-store-grid"></section>
         </section>
 
@@ -314,14 +491,82 @@
             </div>
           </header>
           <section class="profile-card">
-            <div class="large-avatar">JM</div>
+            <div class="large-avatar">SP</div>
             <div>
-              <h2 id="profile-name">Jordan Miller</h2>
-              <p id="profile-email">jordan@example.com</p>
+              <h2 id="profile-name">Speaklio</h2>
+              <p id="profile-email">Signed in account</p>
             </div>
             <button class="quiet-button" data-profile-action="edit">Edit profile</button>
           </section>
+          <section class="profile-overview-grid" aria-label="Profile overview">
+            <article class="mini-stat">
+              <span>Body</span>
+              <strong id="profile-weight">Not set</strong>
+              <small id="profile-height">Height not set</small>
+            </article>
+            <article class="mini-stat">
+              <span>Primary goal</span>
+              <strong id="profile-goal">Not set</strong>
+              <small id="profile-target-weight">Target not set</small>
+            </article>
+            <article class="mini-stat">
+              <span>Daily target</span>
+              <strong id="profile-calorie-goal">Not set</strong>
+              <small id="profile-protein-goal">Protein not set</small>
+            </article>
+          </section>
+          <section class="setup-checklist">
+            <div class="section-title-row compact">
+              <div>
+                <p class="eyebrow">TAILORED PLAN</p>
+                <h2>Your baseline</h2>
+              </div>
+              <button class="text-button" data-profile-action="account-setup">Retune plan</button>
+            </div>
+            <div class="checklist-grid">
+              <div class="checklist-item done">
+                <span></span>
+                <strong id="profile-age">Age not set</strong>
+                <small>Used to tune calorie and recovery targets.</small>
+              </div>
+              <div class="checklist-item done">
+                <span></span>
+                <strong id="profile-activity-level">Activity not set</strong>
+                <small>Sets the starting point for daily energy needs.</small>
+              </div>
+              <div class="checklist-item">
+                <span></span>
+                <strong id="profile-workout-goal">Workout goal not set</strong>
+                <small id="profile-hydration-goal">Water goal not set.</small>
+              </div>
+            </div>
+          </section>
+          <section class="integrations-panel" aria-label="Connected apps and devices">
+            <div class="section-title-row compact">
+              <div>
+                <p class="eyebrow">CONNECTED HEALTH</p>
+                <h2>Apps and devices</h2>
+              </div>
+            </div>
+            <div class="integration-grid" id="integration-grid">
+            </div>
+          </section>
           <section class="settings-list">
+            <button data-profile-action="personal-data">
+              <span class="setting-icon"><span class="icon" data-icon="user"></span></span>
+              <span><strong>Personal data</strong><small>Height, weight, age, and activity level</small></span>
+              <span class="icon" data-icon="chevron-right"></span>
+            </button>
+            <button data-profile-action="goals">
+              <span class="setting-icon"><span class="icon" data-icon="bolt"></span></span>
+              <span><strong>Goals and targets</strong><small>Calories, protein, budget, weight, and workouts</small></span>
+              <span class="icon" data-icon="chevron-right"></span>
+            </button>
+            <button data-profile-action="integrations">
+              <span class="setting-icon"><span class="icon" data-icon="watch"></span></span>
+              <span><strong>Connected apps</strong><small>Apple Health, Apple Watch, and device sync coming soon</small></span>
+              <span class="icon" data-icon="chevron-right"></span>
+            </button>
             <button data-profile-action="notifications">
               <span class="setting-icon"><span class="icon" data-icon="bell"></span></span>
               <span><strong>Notifications</strong><small>Daily reminders and insights</small></span>
@@ -335,6 +580,11 @@
             <button data-profile-action="preferences">
               <span class="setting-icon"><span class="icon" data-icon="settings"></span></span>
               <span><strong>Preferences</strong><small>Customize your dashboard</small></span>
+              <span class="icon" data-icon="chevron-right"></span>
+            </button>
+            <button data-auth-action="sign-out">
+              <span class="setting-icon"><span class="icon" data-icon="log-out"></span></span>
+              <span><strong>Sign out</strong><small>Return to the Speaklio sign-in screen</small></span>
               <span class="icon" data-icon="chevron-right"></span>
             </button>
           </section>
@@ -355,26 +605,39 @@
           <span class="status-dot"></span>
           <span>Ready to help</span>
         </div>
+        <section class="assistant-preview" id="assistant-preview" aria-label="Assistant action preview">
+          <div class="assistant-preview-header">
+            <p class="eyebrow">PREVIEW</p>
+            <span>Review queue</span>
+          </div>
+          <strong id="assistant-preview-title">No pending action</strong>
+          <p id="assistant-preview-copy">Ask Speaklio to log something and this panel will prepare a structured update for your review.</p>
+          <div class="assistant-preview-actions">
+            <button class="secondary-button" type="button" data-assistant-action="cancel">Cancel</button>
+            <button class="secondary-button" type="button" data-assistant-action="edit">Edit</button>
+            <button class="primary-button" type="button" data-assistant-action="confirm">Confirm</button>
+          </div>
+        </section>
         <div class="chat-stream" id="chat-stream">
           <div class="chat-day">TODAY</div>
           <div class="chat-bubble assistant">
             <div class="bot-mark"><span class="icon" data-icon="sparkles"></span></div>
-            <p>Hi Jordan. Tell me what you ate, spent, or want to plan.</p>
+            <p>Hi there. Tell me what you ate, spent, drank, or want to plan.</p>
           </div>
         </div>
         <div class="suggestion-area">
           <p>TRY SAYING</p>
           <div class="suggestion-list">
-            <button class="suggestion-chip">I spent $25 on lunch</button>
+            <button class="suggestion-chip">Log an expense</button>
             <button class="suggestion-chip">How did I sleep last night?</button>
-            <button class="suggestion-chip">Plan a workout for tomorrow</button>
-            <button class="suggestion-chip">I drank 500 ml of water</button>
+            <button class="suggestion-chip">Plan a workout</button>
+            <button class="suggestion-chip">Add water</button>
           </div>
         </div>
         <form class="assistant-composer" id="assistant-form">
           <label class="sr-only" for="assistant-input">Ask Speaklio anything</label>
           <input id="assistant-input" type="text" placeholder="Ask Speaklio anything..." autocomplete="off" />
-          <button type="button" class="mic-button" id="mic-button" aria-label="Simulate voice input">
+          <button type="button" class="mic-button" id="mic-button" aria-label="Start voice input">
             <span class="icon" data-icon="mic"></span>
           </button>
           <button type="submit" class="send-button" aria-label="Send message">
@@ -424,6 +687,7 @@
       <div class="toast" id="toast" role="status" aria-live="polite"></div>
       <div class="overlay" id="overlay"></div>
     </div>
+    <script src="config.js"></script>
     <script src="app.js"></script>
   </body>
 </html>
