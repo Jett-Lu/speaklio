@@ -136,6 +136,7 @@ function makeDefaultState() {
     hydration: { ml: 0, goal: 2700 },
     mindfulness: { count: 0, title: "Mindful moment", duration: 10 },
     installedPlugins: new Set(),
+    currentView: "home",
     activityFilter: "all",
     activitySearch: "",
     activities: [],
@@ -154,6 +155,7 @@ function loadState() {
     if (authSession?.access_token) {
       return {
         ...defaults,
+        currentView: typeof saved.currentView === "string" ? saved.currentView : defaults.currentView,
         activityFilter: typeof saved.activityFilter === "string" ? saved.activityFilter : defaults.activityFilter,
         activitySearch: typeof saved.activitySearch === "string" ? saved.activitySearch : defaults.activitySearch,
         chats: Array.isArray(saved.chats) && saved.chats.length ? saved.chats : defaults.chats,
@@ -177,6 +179,8 @@ function loadState() {
       hydration: { ...defaults.hydration, ...saved.hydration },
       mindfulness: { ...defaults.mindfulness, ...saved.mindfulness },
       installedPlugins: new Set(saved.installedPlugins || [...defaults.installedPlugins]),
+      currentView: typeof saved.currentView === "string" ? saved.currentView : defaults.currentView,
+      activityFilter: typeof saved.activityFilter === "string" ? saved.activityFilter : defaults.activityFilter,
       activitySearch: typeof saved.activitySearch === "string" ? saved.activitySearch : defaults.activitySearch,
       activities: Array.isArray(saved.activities) ? saved.activities : defaults.activities,
       chats: Array.isArray(saved.chats) && saved.chats.length ? saved.chats : defaults.chats,
@@ -204,6 +208,8 @@ const modalBody = document.getElementById("modal-body");
 const activitySearch = document.getElementById("activity-search");
 const assistantPreviewTitle = document.getElementById("assistant-preview-title");
 const assistantPreviewCopy = document.getElementById("assistant-preview-copy");
+const backendStatus = document.getElementById("backend-status");
+const backendStatusCopy = document.getElementById("backend-status-copy");
 let pendingAssistantPreview = null;
 const loginForm = document.getElementById("login-form");
 const loginEmail = document.getElementById("login-email");
@@ -647,6 +653,7 @@ async function loadBackendData() {
   applyDashboardSummary(summaryPayload.summary);
   applyActivities(activityPayload.activities || []);
   state.authenticated = true;
+  clearBackendStatus();
   saveState();
   renderAll();
 }
@@ -697,6 +704,17 @@ async function saveProfileSettings(overrides = {}) {
 
 function saveState() {
   try {
+    if (state.authenticated && authSession?.access_token) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        scope: "local-ui",
+        currentView: state.currentView,
+        activityFilter: state.activityFilter,
+        activitySearch: state.activitySearch,
+        chats: state.chats,
+      }));
+      return;
+    }
+
     localStorage.setItem(STORAGE_KEY, JSON.stringify({
       ...state,
       installedPlugins: [...state.installedPlugins],
@@ -711,6 +729,19 @@ function showToast(message) {
   toast.classList.add("show");
   clearTimeout(showToast.timeout);
   showToast.timeout = setTimeout(() => toast.classList.remove("show"), 2400);
+}
+
+function clearBackendStatus() {
+  if (backendStatus) backendStatus.hidden = true;
+}
+
+function showBackendLoadError(error) {
+  const detail = error instanceof Error ? error.message : "Backend request failed";
+  if (backendStatusCopy) {
+    backendStatusCopy.textContent = `Your session is still saved. ${detail}`;
+  }
+  if (backendStatus) backendStatus.hidden = false;
+  showToast("Unable to refresh backend data");
 }
 
 window.addEventListener("unhandledrejection", (event) => {
@@ -1004,20 +1035,28 @@ async function completeSignIn(code) {
   saveSession(sessionPayload);
   state.authenticated = true;
   hideAccountSetup();
-  await loadBackendData();
-  openView("home");
-  showToast("Signed in to Speaklio");
+  try {
+    await loadBackendData();
+    openView("home");
+    showToast("Signed in to Speaklio");
+  } catch (error) {
+    saveState();
+    renderAll();
+    showBackendLoadError(error);
+  }
 }
 
 function signOut() {
-  state.authenticated = false;
   saveSession(null);
+  state = makeDefaultState();
+  pendingAssistantPreview = null;
+  clearBackendStatus();
   closeModal();
   hideAssistant();
   openView("home");
   hideAccountSetup();
   saveState();
-  renderAuthState();
+  renderAll();
 }
 
 function showAccountSetup() {
@@ -1194,10 +1233,13 @@ function previewAssistantRequest(text) {
 }
 
 function openView(viewName) {
-  views.forEach((view) => view.classList.toggle("active", view.id === `${viewName}-view`));
-  navButtons.forEach((button) => button.classList.toggle("active", button.dataset.view === viewName));
+  const targetView = document.getElementById(`${viewName}-view`) ? viewName : "home";
+  state.currentView = targetView;
+  views.forEach((view) => view.classList.toggle("active", view.id === `${targetView}-view`));
+  navButtons.forEach((button) => button.classList.toggle("active", button.dataset.view === targetView));
   if (window.innerWidth <= 980) hideAssistant();
   window.scrollTo({ top: 0, behavior: "smooth" });
+  saveState();
 }
 
 function showAssistant() {
@@ -1952,6 +1994,17 @@ function processRequest(rawText) {
 }
 
 document.addEventListener("click", async (event) => {
+  const backendAction = event.target.closest("[data-backend-action]");
+  if (backendAction?.dataset.backendAction === "retry") {
+    try {
+      await loadBackendData();
+      showToast("Backend data refreshed");
+    } catch (error) {
+      showBackendLoadError(error);
+    }
+    return;
+  }
+
   const authAction = event.target.closest("[data-auth-action]");
   if (authAction?.dataset.authAction === "sign-out") signOut();
   if (authAction?.dataset.authAction === "start-setup") showAccountSetup();
@@ -2339,15 +2392,16 @@ installStaticIcons();
 
 async function initializeApp() {
   renderAll();
+  openView(state.currentView || "home");
   if (!authSession?.access_token) return;
 
   try {
     await loadBackendData();
   } catch (error) {
-    saveSession(null);
-    state.authenticated = false;
+    state.authenticated = true;
+    saveState();
     renderAll();
-    showToast(error.message || "Please sign in again");
+    showBackendLoadError(error);
   }
 }
 

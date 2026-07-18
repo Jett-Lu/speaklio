@@ -356,6 +356,44 @@ body.signed-out .app-shell {
   padding: 35px 36px 44px;
 }
 
+.backend-status {
+  display: flex;
+  max-width: 950px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 0 auto 18px;
+  padding: 12px 14px;
+  color: #6e4e15;
+  border: 1px solid #e6cf9a;
+  border-radius: 8px;
+  background: #fff8e7;
+}
+
+.backend-status[hidden] {
+  display: none;
+}
+
+.backend-status div {
+  display: grid;
+  gap: 3px;
+}
+
+.backend-status strong {
+  color: #593d0d;
+  font-size: 13px;
+}
+
+.backend-status span {
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.backend-status .secondary-button {
+  width: auto;
+  flex: 0 0 auto;
+}
+
 .mobile-header,
 .bottom-nav,
 .mobile-assistant-dock,

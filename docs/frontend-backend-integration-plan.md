@@ -24,6 +24,9 @@ Started on July 18, 2026:
 - Moved plugin modal categories, quality options, and quick presets into a frontend plugin UI registry.
 - Marked Apple Health, Apple Watch, and meal scanning as coming soon instead of presenting fake connection or scan-save flows.
 - Removed hardcoded submitted meal macro defaults from the nutrition form; remaining values are placeholders only.
+- Changed signed-in `speaklio-state-v3` persistence to store only local UI state instead of backend-owned profile, plugin, metric, and activity data.
+- Added a visible backend refresh failure banner with retry, and stopped clearing the saved session on startup API failures.
+- Reset local state on sign-out so signed-in dashboard data is not written back into signed-out local storage.
 
 ## Goal
 

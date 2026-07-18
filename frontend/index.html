@@ -137,6 +137,14 @@
           <button class="avatar avatar-button" aria-label="Open profile" data-view-trigger="profile">JM</button>
         </header>
 
+        <section class="backend-status" id="backend-status" hidden>
+          <div>
+            <strong>Unable to refresh backend data</strong>
+            <span id="backend-status-copy">Your session is still saved. Try again when the local API is running.</span>
+          </div>
+          <button class="secondary-button" type="button" data-backend-action="retry">Retry</button>
+        </section>
+
         <section class="view active" id="home-view">
           <header class="page-heading home-heading">
             <div>
