@@ -164,6 +164,7 @@ const modalBody = document.getElementById("modal-body");
 const activitySearch = document.getElementById("activity-search");
 const assistantPreviewTitle = document.getElementById("assistant-preview-title");
 const assistantPreviewCopy = document.getElementById("assistant-preview-copy");
+let pendingAssistantPreview = null;
 const loginForm = document.getElementById("login-form");
 const loginEmail = document.getElementById("login-email");
 const otpPanel = document.getElementById("otp-panel");
@@ -984,6 +985,106 @@ function setAssistantPreview(title, copy) {
   assistantPreviewCopy.textContent = copy;
 }
 
+function pluginLabel(pluginId) {
+  return pluginMap[pluginId]?.name || pluginId || "Speaklio";
+}
+
+function normalizePreviewEntry(entry) {
+  const occurredAt = entry.occurredAt ? new Date(entry.occurredAt) : null;
+  return {
+    pluginId: entry.pluginId ?? null,
+    entryType: entry.entryType,
+    value: entry.value ?? null,
+    unit: entry.unit ?? null,
+    metadata: entry.metadata && typeof entry.metadata === "object" ? entry.metadata : {},
+    ...(occurredAt && !Number.isNaN(occurredAt.getTime()) ? { occurredAt: occurredAt.toISOString() } : {}),
+  };
+}
+
+function describePreviewEntry(entry) {
+  const metadata = entry.metadata && typeof entry.metadata === "object" ? entry.metadata : {};
+  const label = pluginLabel(entry.pluginId);
+  if (entry.entryType === "log_food") {
+    return `${label}: ${metadata.food || "food"}${entry.value ? `, ${entry.value} ${entry.unit || "cal"}` : ""}`;
+  }
+  if (entry.entryType === "log_calories") {
+    return `${label}: ${entry.value || 0} ${entry.unit || "cal"}`;
+  }
+  if (entry.entryType === "log_workout") {
+    return `${label}: ${metadata.exercise || metadata.title || "workout"}`;
+  }
+  if (entry.entryType === "log_weight") {
+    return `${label}: ${entry.value || 0} ${entry.unit || ""}`.trim();
+  }
+  return `${label}: ${entry.entryType.replaceAll("_", " ")}`;
+}
+
+async function previewBackendAssistantRequest(text) {
+  try {
+    const payload = await apiRequest("/ai/preview-entry", {
+      method: "POST",
+      body: JSON.stringify({ text }),
+    });
+    const previews = Array.isArray(payload.previews) ? payload.previews : [];
+    const entries = previews
+      .map((preview) => preview.entry)
+      .filter(Boolean)
+      .map(normalizePreviewEntry);
+
+    if (entries.length === 0) {
+      pendingAssistantPreview = null;
+      return false;
+    }
+
+    pendingAssistantPreview = { entries, previews, text };
+    const descriptions = entries.map(describePreviewEntry);
+    setAssistantPreview(
+      `${entries.length} action${entries.length === 1 ? "" : "s"} ready`,
+      `${descriptions.join(" - ")}. Confirm to save ${entries.length === 1 ? "it" : "them"}.`,
+    );
+    addMessage(payload.message || `I prepared ${entries.length === 1 ? "an entry" : `${entries.length} entries`} for review. Confirm when it looks right.`, "assistant");
+    return true;
+  } catch (error) {
+    pendingAssistantPreview = null;
+    setAssistantPreview("Assistant fallback", "Local AI is unavailable, so Speaklio will use the basic logger for this request.");
+    return false;
+  }
+}
+
+async function confirmAssistantPreview() {
+  if (!pendingAssistantPreview?.entries?.length) {
+    showToast("No pending assistant action");
+    return;
+  }
+
+  const payload = await apiRequest("/ai/confirm-actions", {
+    method: "POST",
+    body: JSON.stringify({ entries: pendingAssistantPreview.entries }),
+  });
+  const count = payload.entries?.length || pendingAssistantPreview.entries.length;
+  pendingAssistantPreview = null;
+  setAssistantPreview("No pending action", "Ask Speaklio to log something and this panel will prepare a structured update for your review.");
+  await loadBackendData();
+  addMessage(`Saved ${count} ${count === 1 ? "entry" : "entries"} to your dashboard.`, "assistant");
+  showToast("Assistant action saved");
+}
+
+function editAssistantPreview() {
+  const entry = pendingAssistantPreview?.entries?.[0];
+  if (!entry) {
+    showToast("No pending assistant action");
+    return;
+  }
+
+  if (entry.pluginId && pluginMap[entry.pluginId]) {
+    openPlugin(entry.pluginId);
+    addMessage(`Opened ${pluginLabel(entry.pluginId)} so you can adjust the details before saving.`, "assistant");
+    return;
+  }
+
+  showToast("This assistant action is not editable yet");
+}
+
 function previewAssistantRequest(text) {
   const lower = text.toLowerCase();
   if (/(water|drank|hydrate|hydration)/.test(lower)) {
@@ -1644,6 +1745,10 @@ function processRequest(rawText) {
   input.value = "";
 
   setTimeout(async () => {
+    if (state.authenticated && authSession?.access_token && await previewBackendAssistantRequest(text)) {
+      return;
+    }
+
     const waterMatch = lower.match(/(\d+(?:\.\d+)?)\s*(ml|milliliters?|l|liters?)/);
     if (/(water|drank|hydrate|hydration)/.test(lower) && waterMatch) {
       if (!ensureInstalled("hydration")) return;
@@ -1839,9 +1944,14 @@ document.addEventListener("click", async (event) => {
 
   const assistantAction = event.target.closest("[data-assistant-action]");
   if (assistantAction) {
-    showToast(assistantAction.dataset.assistantAction === "confirm"
-      ? "Action confirmed"
-      : "Action ready to edit");
+    if (assistantAction.dataset.assistantAction === "confirm") {
+      try {
+        await confirmAssistantPreview();
+      } catch (error) {
+        showToast(error.message || "Unable to save assistant action");
+      }
+    }
+    if (assistantAction.dataset.assistantAction === "edit") editAssistantPreview();
   }
 
   const modalAction = event.target.closest("[data-modal-action]");
@@ -2167,12 +2277,9 @@ micButton.addEventListener("click", () => {
   input.placeholder = "Listening...";
 
   if (!SpeechRecognition) {
-    setTimeout(() => {
-      micButton.classList.remove("listening");
-      input.placeholder = "Ask Speaklio anything...";
-      showToast("Voice input is unavailable in this browser.");
-      processRequest("I had eggs and toast for breakfast");
-    }, 1100);
+    micButton.classList.remove("listening");
+    input.placeholder = "Ask Speaklio anything...";
+    showToast("Voice input is unavailable in this browser.");
     return;
   }
 

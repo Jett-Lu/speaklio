@@ -17,6 +17,8 @@ Started on July 18, 2026:
 - Added authenticated `GET /activities` and switched the signed-in frontend timeline to backend activity rows.
 - Changed signed-in clear-activity behavior to explain that activity is derived from entries until backend deletion/archive support exists.
 - Added authenticated `GET /dashboard/summary` and switched signed-in dashboard metric refreshes to backend-computed summary data.
+- Wired signed-in assistant previews to `POST /ai/preview-entry` and Confirm actions to `POST /ai/confirm-actions` for backend-supported proposed entries.
+- Removed the fake microphone fallback that logged a hardcoded meal when browser voice input was unavailable.
 
 ## Goal
 
