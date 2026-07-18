@@ -1,4 +1,11 @@
 const STORAGE_KEY = "speaklio-state-v3";
+const SESSION_KEY = "speaklio-auth-session-v1";
+const config = window.SPEAKLIO_CONFIG || {};
+const API_BASE_URL = config.API_BASE_URL || "http://localhost:3000";
+const SUPABASE_URL = config.SUPABASE_URL || "http://127.0.0.1:54321";
+const SUPABASE_PUBLISHABLE_KEY = config.SUPABASE_PUBLISHABLE_KEY || "";
+
+let authSession = loadSession();
 
 const iconPaths = {
   home: '<path d="M3 10.5 10 4l7 6.5"/><path d="M5 9.5V17h10V9.5"/><path d="M8.5 17v-5h3v5"/>',
@@ -28,7 +35,7 @@ const iconPaths = {
   "log-out": '<path d="M8 4H5a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h3"/><path d="M12 6l4 4-4 4M16 10H7"/>',
 };
 
-const plugins = [
+let plugins = [
   { id: "nutrition", name: "Nutrition", icon: "apple", description: "Track meals, calories, and daily macros." },
   { id: "finance", name: "Finance", icon: "wallet", description: "Log expenses and keep an eye on your budget." },
   { id: "sleep", name: "Sleep", icon: "moon", description: "Understand your rest and sleep patterns." },
@@ -37,11 +44,27 @@ const plugins = [
   { id: "mindfulness", name: "Mindfulness", icon: "heart", description: "Make space for calm moments in your day." },
 ];
 
-const pluginMap = Object.fromEntries(plugins.map((plugin) => [plugin.id, plugin]));
+let pluginMap = Object.fromEntries(plugins.map((plugin) => [plugin.id, plugin]));
+
+function firstName(name) {
+  return String(name || "there").trim().split(/\s+/)[0] || "there";
+}
+
+function starterChatText(name) {
+  return `Hi ${firstName(name)}. Tell me what you ate, spent, drank, or want to plan.`;
+}
+
+function syncStarterChatGreeting(targetState) {
+  const starterPattern = /^Hi .+\. Tell me what you ate, spent, drank, or want to plan\.$/;
+  const firstChat = targetState.chats?.[0];
+  if (firstChat?.sender === "assistant" && starterPattern.test(firstChat.text)) {
+    firstChat.text = starterChatText(targetState.profile.name);
+  }
+}
 
 function makeDefaultState() {
   return {
-    authenticated: true,
+    authenticated: Boolean(authSession?.access_token),
     profile: {
       name: "Jordan Miller",
       email: "jordan@example.com",
@@ -83,7 +106,7 @@ function makeDefaultState() {
       { id: 5, plugin: "nutrition", title: "Logged chicken rice bowl", detail: "Dinner - 610 cal", time: "Yesterday", day: "Yesterday" },
     ],
     chats: [
-      { sender: "assistant", text: "Hi Jordan. Tell me what you ate, spent, drank, or want to plan." },
+      { sender: "assistant", text: starterChatText("Jordan Miller") },
     ],
   };
 }
@@ -120,6 +143,7 @@ function loadState() {
 }
 
 let state = loadState();
+syncStarterChatGreeting(state);
 
 const views = document.querySelectorAll(".view");
 const navButtons = document.querySelectorAll(".nav-item");
@@ -138,6 +162,10 @@ const assistantPreviewTitle = document.getElementById("assistant-preview-title")
 const assistantPreviewCopy = document.getElementById("assistant-preview-copy");
 const loginForm = document.getElementById("login-form");
 const loginEmail = document.getElementById("login-email");
+const otpPanel = document.getElementById("otp-panel");
+const otpForm = document.getElementById("otp-form");
+const loginCode = document.getElementById("login-code");
+const authStatus = document.getElementById("auth-status");
 const accountSetupPanel = document.getElementById("account-setup-panel");
 
 function escapeHtml(value) {
@@ -218,6 +246,332 @@ function installStaticIcons() {
   });
 }
 
+function loadSession() {
+  try {
+    return JSON.parse(localStorage.getItem(SESSION_KEY));
+  } catch {
+    return null;
+  }
+}
+
+function saveSession(session) {
+  authSession = session;
+  if (session?.access_token) {
+    localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+  } else {
+    localStorage.removeItem(SESSION_KEY);
+  }
+}
+
+function authHeaders() {
+  return {
+    apikey: SUPABASE_PUBLISHABLE_KEY,
+    Authorization: `Bearer ${SUPABASE_PUBLISHABLE_KEY}`,
+    "Content-Type": "application/json",
+  };
+}
+
+function apiHeaders() {
+  return {
+    Authorization: `Bearer ${authSession?.access_token || ""}`,
+    "Content-Type": "application/json",
+  };
+}
+
+async function parseJsonResponse(response) {
+  const text = await response.text();
+  const payload = text ? JSON.parse(text) : null;
+  if (!response.ok) {
+    throw new Error(payload?.error_description || payload?.error || payload?.message || "Request failed");
+  }
+  return payload;
+}
+
+async function requestOtp(email) {
+  if (!SUPABASE_PUBLISHABLE_KEY) {
+    throw new Error("Missing Supabase publishable key. Restart the frontend server after local Supabase is running.");
+  }
+
+  const response = await fetch(`${SUPABASE_URL}/auth/v1/otp`, {
+    method: "POST",
+    headers: authHeaders(),
+    body: JSON.stringify({
+      email,
+      create_user: true,
+      data: { display_name: state.profile.name },
+    }),
+  });
+  await parseJsonResponse(response);
+}
+
+async function verifyOtp(email, token) {
+  const response = await fetch(`${SUPABASE_URL}/auth/v1/verify`, {
+    method: "POST",
+    headers: authHeaders(),
+    body: JSON.stringify({ email, token, type: "email" }),
+  });
+  return parseJsonResponse(response);
+}
+
+async function apiRequest(path, options = {}) {
+  if (!authSession?.access_token) throw new Error("Please sign in first.");
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    ...options,
+    headers: {
+      ...apiHeaders(),
+      ...(options.headers || {}),
+    },
+  });
+  return parseJsonResponse(response);
+}
+
+function setPluginCatalog(nextPlugins) {
+  if (!Array.isArray(nextPlugins) || nextPlugins.length === 0) return;
+  plugins = nextPlugins.map((plugin) => ({
+    id: String(plugin.id),
+    name: String(plugin.name),
+    icon: String(plugin.icon || "sparkles"),
+    description: String(plugin.description || ""),
+    enabled: Boolean(plugin.enabled),
+  }));
+  pluginMap = Object.fromEntries(plugins.map((plugin) => [plugin.id, plugin]));
+}
+
+function formatEntryDay(value) {
+  const date = new Date(value);
+  const today = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(today.getDate() - 1);
+  if (date.toDateString() === today.toDateString()) return "Today";
+  if (date.toDateString() === yesterday.toDateString()) return "Yesterday";
+  return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+function formatEntryTime(value) {
+  const date = new Date(value);
+  return date.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+}
+
+function isSameDay(value, date = new Date()) {
+  return new Date(value).toDateString() === date.toDateString();
+}
+
+function isSameMonth(value, date = new Date()) {
+  const entryDate = new Date(value);
+  return entryDate.getMonth() === date.getMonth() && entryDate.getFullYear() === date.getFullYear();
+}
+
+function isThisWeek(value) {
+  const entryDate = new Date(value);
+  const now = new Date();
+  const weekStart = new Date(now);
+  weekStart.setDate(now.getDate() - now.getDay());
+  weekStart.setHours(0, 0, 0, 0);
+  return entryDate >= weekStart && entryDate <= now;
+}
+
+function entryToActivity(entry) {
+  const metadata = entry.metadata && typeof entry.metadata === "object" ? entry.metadata : {};
+  const pluginId = entry.pluginId || "speaklio";
+  const entryType = String(entry.entryType || "entry");
+
+  if (entryType === "log_food") {
+    const food = metadata.food || "food";
+    return {
+      id: entry.id,
+      plugin: pluginId,
+      title: `Logged ${food}`,
+      detail: `${metadata.meal || "Meal"}${metadata.calories ? ` - ${metadata.calories} cal` : ""}`,
+      day: formatEntryDay(entry.occurredAt),
+      time: formatEntryTime(entry.occurredAt),
+    };
+  }
+
+  if (entryType === "log_expense") {
+    return {
+      id: entry.id,
+      plugin: pluginId,
+      title: `Added ${metadata.note || metadata.category || "expense"}`,
+      detail: `${metadata.category || "Expense"} - $${Number(entry.value || 0).toFixed(2)}`,
+      day: formatEntryDay(entry.occurredAt),
+      time: formatEntryTime(entry.occurredAt),
+    };
+  }
+
+  if (entryType === "log_hydration") {
+    return {
+      id: entry.id,
+      plugin: pluginId,
+      title: "Added water",
+      detail: `${Number(entry.value || 0)} ${entry.unit || "ml"}`,
+      day: formatEntryDay(entry.occurredAt),
+      time: formatEntryTime(entry.occurredAt),
+    };
+  }
+
+  if (entryType === "log_sleep") {
+    return {
+      id: entry.id,
+      plugin: pluginId,
+      title: "Updated sleep summary",
+      detail: `${formatMinutes(Number(entry.value || 0))} - ${metadata.quality || "Logged"} quality`,
+      day: formatEntryDay(entry.occurredAt),
+      time: formatEntryTime(entry.occurredAt),
+    };
+  }
+
+  if (entryType === "log_workout") {
+    const exercise = metadata.exercise || metadata.title || "workout";
+    return {
+      id: entry.id,
+      plugin: pluginId,
+      title: `Logged ${exercise}`,
+      detail: [metadata.sets ? `${metadata.sets} sets` : null, metadata.duration ? `${metadata.duration} min` : null].filter(Boolean).join(" - ") || "Workout logged",
+      day: formatEntryDay(entry.occurredAt),
+      time: formatEntryTime(entry.occurredAt),
+    };
+  }
+
+  if (entryType === "log_mindfulness") {
+    return {
+      id: entry.id,
+      plugin: pluginId,
+      title: "Completed mindful moment",
+      detail: `${Number(entry.value || 0)} minutes`,
+      day: formatEntryDay(entry.occurredAt),
+      time: formatEntryTime(entry.occurredAt),
+    };
+  }
+
+  return {
+    id: entry.id,
+    plugin: pluginId,
+    title: `Logged ${entryType.replaceAll("_", " ")}`,
+    detail: entry.unit ? `${entry.value ?? ""} ${entry.unit}`.trim() : "Entry added",
+    day: formatEntryDay(entry.occurredAt),
+    time: formatEntryTime(entry.occurredAt),
+  };
+}
+
+function applyEntries(entries) {
+  const defaults = makeDefaultState();
+  state.nutrition = { ...defaults.nutrition, goal: state.profile.goals.calorieGoal, calories: 0, protein: 0, carbs: 0, fats: 0 };
+  state.finance = { ...defaults.finance, spending: 0 };
+  state.sleep = { ...defaults.sleep };
+  state.workout = { ...defaults.workout, completed: 0, goal: state.profile.goals.weeklyWorkouts };
+  state.hydration = { ...defaults.hydration, ml: 0, goal: state.profile.goals.hydrationGoal };
+  state.mindfulness = { ...defaults.mindfulness, count: 0 };
+
+  entries.forEach((entry) => {
+    const metadata = entry.metadata && typeof entry.metadata === "object" ? entry.metadata : {};
+    const occurredAt = entry.occurredAt || entry.createdAt;
+    const happenedToday = isSameDay(occurredAt);
+    const happenedThisWeek = isThisWeek(occurredAt);
+
+    if (entry.entryType === "log_food" && happenedToday) {
+      state.nutrition.calories += Number(metadata.calories || entry.value || 0);
+      state.nutrition.protein += Number(metadata.protein || 0);
+      state.nutrition.carbs += Number(metadata.carbs || 0);
+      state.nutrition.fats += Number(metadata.fats || 0);
+    }
+    if (entry.entryType === "log_calories" && happenedToday) state.nutrition.calories += Number(entry.value || 0);
+    if (entry.entryType === "log_expense" && isSameMonth(occurredAt)) state.finance.spending += Number(entry.value || 0);
+    if (entry.entryType === "log_hydration" && happenedToday) state.hydration.ml += Number(entry.value || 0);
+    if (entry.entryType === "log_mindfulness" && happenedThisWeek) state.mindfulness.count += 1;
+    if (entry.entryType === "log_sleep") {
+      state.sleep.minutes = Number(entry.value || state.sleep.minutes);
+      state.sleep.quality = String(metadata.quality || state.sleep.quality);
+      state.sleep.week[state.sleep.week.length - 1] = state.sleep.minutes;
+    }
+    if (entry.entryType === "log_workout") {
+      state.workout.completed += metadata.completed && happenedThisWeek ? 1 : 0;
+      state.workout.title = String(metadata.exercise || metadata.title || state.workout.title);
+      state.workout.duration = Number(metadata.duration || state.workout.duration);
+    }
+  });
+
+  state.activities = entries.map(entryToActivity);
+}
+
+function applyRemoteProfile(payload) {
+  const displayName = payload.profile?.display_name || payload.user?.email?.split("@")[0] || state.profile.name;
+  state.profile.name = displayName;
+  state.profile.email = payload.user?.email || payload.profile?.email || state.profile.email;
+  state.profile.timezone = payload.profile?.timezone || state.profile.timezone;
+  state.profile.personal = {
+    ...state.profile.personal,
+    ...(payload.profile?.personal_data && typeof payload.profile.personal_data === "object" ? payload.profile.personal_data : {}),
+  };
+  state.profile.goals = {
+    ...state.profile.goals,
+    ...(payload.profile?.goals && typeof payload.profile.goals === "object" ? payload.profile.goals : {}),
+  };
+  state.profile = {
+    ...state.profile,
+    ...(payload.profile?.preferences && typeof payload.profile.preferences === "object" ? payload.profile.preferences : {}),
+  };
+  syncStarterChatGreeting(state);
+}
+
+async function loadBackendData() {
+  const [me, pluginPayload, entryPayload] = await Promise.all([
+    apiRequest("/me"),
+    apiRequest("/plugins"),
+    apiRequest("/entries?limit=100"),
+  ]);
+  applyRemoteProfile(me);
+  setPluginCatalog(pluginPayload.plugins || []);
+  state.installedPlugins = new Set((pluginPayload.plugins || []).filter((plugin) => plugin.enabled).map((plugin) => plugin.id));
+  applyEntries(entryPayload.entries || []);
+  state.authenticated = true;
+  saveState();
+  renderAll();
+}
+
+async function createBackendEntry(entry) {
+  const payload = await apiRequest("/entries", {
+    method: "POST",
+    body: JSON.stringify({
+      occurredAt: new Date().toISOString(),
+      ...entry,
+    }),
+  });
+  await loadBackendData();
+  return payload;
+}
+
+function currentProfilePayload() {
+  return {
+    displayName: state.profile.name,
+    timezone: state.profile.timezone,
+    personal: state.profile.personal,
+    goals: state.profile.goals,
+    preferences: {
+      units: state.profile.units,
+      notifications: state.profile.notifications,
+      weeklySummary: state.profile.weeklySummary,
+      assistantInsights: state.profile.assistantInsights,
+      compactCards: state.profile.compactCards,
+    },
+  };
+}
+
+async function saveProfileSettings(overrides = {}) {
+  if (!state.authenticated || !authSession?.access_token) return null;
+  const payload = {
+    ...currentProfilePayload(),
+    ...overrides,
+  };
+  const result = await apiRequest("/me/profile", {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+  applyRemoteProfile({ profile: result.profile });
+  saveState();
+  renderAll();
+  return result.profile;
+}
+
 function saveState() {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({
@@ -235,6 +589,10 @@ function showToast(message) {
   clearTimeout(showToast.timeout);
   showToast.timeout = setTimeout(() => toast.classList.remove("show"), 2400);
 }
+
+window.addEventListener("unhandledrejection", (event) => {
+  showToast(event.reason?.message || "Something went wrong");
+});
 
 function updateDateAndProfile() {
   const now = new Date();
@@ -471,6 +829,8 @@ function renderChats() {
 function renderAuthState() {
   document.body.classList.toggle("signed-out", !state.authenticated);
   if (loginEmail) loginEmail.value = state.profile.email;
+  if (otpPanel && state.authenticated) otpPanel.hidden = true;
+  if (authStatus && state.authenticated) authStatus.textContent = "";
 }
 
 function renderAll() {
@@ -483,18 +843,31 @@ function renderAll() {
   renderChats();
 }
 
-function signIn(email) {
-  state.authenticated = true;
-  if (email) state.profile.email = email;
-  hideAccountSetup();
+async function signIn(email) {
+  const cleanEmail = String(email || "").trim();
+  if (!cleanEmail) return;
+  state.profile.email = cleanEmail;
+  await requestOtp(cleanEmail);
+  if (otpPanel) otpPanel.hidden = false;
+  if (authStatus) authStatus.textContent = `Code sent to ${cleanEmail}. Open Mailpit at http://127.0.0.1:54324.`;
+  loginCode?.focus();
   saveState();
-  renderAll();
+  showToast("Sign-in code sent");
+}
+
+async function completeSignIn(code) {
+  const sessionPayload = await verifyOtp(state.profile.email, String(code || "").trim());
+  saveSession(sessionPayload);
+  state.authenticated = true;
+  hideAccountSetup();
+  await loadBackendData();
   openView("home");
   showToast("Signed in to Speaklio");
 }
 
 function signOut() {
   state.authenticated = false;
+  saveSession(null);
   closeModal();
   hideAssistant();
   openView("home");
@@ -863,10 +1236,22 @@ function openPlugin(pluginId) {
   openModal({ eyebrow: plugin.name.toUpperCase(), title: plugin.name, body: content[pluginId] });
 }
 
-function togglePlugin(pluginId) {
+async function togglePlugin(pluginId) {
   const plugin = pluginMap[pluginId];
   if (!plugin) return;
-  if (state.installedPlugins.has(pluginId)) {
+  const installed = state.installedPlugins.has(pluginId);
+
+  if (state.authenticated && authSession?.access_token) {
+    await apiRequest(`/plugins/${encodeURIComponent(pluginId)}/enable`, {
+      method: installed ? "DELETE" : "PUT",
+    });
+    await loadBackendData();
+    closeModal();
+    showToast(`${plugin.name} ${installed ? "removed from" : "added to"} your dashboard`);
+    return;
+  }
+
+  if (installed) {
     state.installedPlugins.delete(pluginId);
     closeModal();
     showToast(`${plugin.name} removed from your dashboard`);
@@ -878,7 +1263,19 @@ function togglePlugin(pluginId) {
   renderAll();
 }
 
-function logWater(amount) {
+async function logWater(amount) {
+  if (state.authenticated && authSession?.access_token) {
+    await createBackendEntry({
+      pluginId: "hydration",
+      entryType: "log_hydration",
+      value: amount,
+      unit: "ml",
+      metadata: {},
+    });
+    showToast(`${amount} ml added to Hydration`);
+    return;
+  }
+
   state.hydration.ml += amount;
   addActivity({ plugin: "hydration", title: "Added water", detail: `${amount} ml - ${state.hydration.ml} ml today` });
   saveState();
@@ -886,7 +1283,19 @@ function logWater(amount) {
   showToast(`${amount} ml added to Hydration`);
 }
 
-function logMindfulness(minutes) {
+async function logMindfulness(minutes) {
+  if (state.authenticated && authSession?.access_token) {
+    await createBackendEntry({
+      pluginId: "mindfulness",
+      entryType: "log_mindfulness",
+      value: minutes,
+      unit: "min",
+      metadata: {},
+    });
+    showToast("Mindful moment completed");
+    return;
+  }
+
   state.mindfulness.count += 1;
   addActivity({ plugin: "mindfulness", title: "Completed mindful moment", detail: `${minutes}-minute guided breathing` });
   saveState();
@@ -894,7 +1303,21 @@ function logMindfulness(minutes) {
   showToast("Mindful moment completed");
 }
 
-function completeWorkout() {
+async function completeWorkout() {
+  if (state.authenticated && authSession?.access_token) {
+    await createBackendEntry({
+      pluginId: "workout",
+      entryType: "log_workout",
+      metadata: {
+        exercise: state.workout.title,
+        duration: state.workout.duration,
+        completed: true,
+      },
+    });
+    showToast("Workout marked complete");
+    return;
+  }
+
   state.workout.completed += 1;
   addActivity({ plugin: "workout", title: `Completed ${state.workout.title.toLowerCase()}`, detail: `${state.workout.duration} minutes - Session ${state.workout.completed} of ${state.workout.goal}` });
   saveState();
@@ -1144,12 +1567,12 @@ function processRequest(rawText) {
   previewAssistantRequest(text);
   input.value = "";
 
-  setTimeout(() => {
+  setTimeout(async () => {
     const waterMatch = lower.match(/(\d+(?:\.\d+)?)\s*(ml|milliliters?|l|liters?)/);
     if (/(water|drank|hydrate|hydration)/.test(lower) && waterMatch) {
       if (!ensureInstalled("hydration")) return;
       const amount = waterMatch[2].startsWith("l") ? Number(waterMatch[1]) * 1000 : Number(waterMatch[1]);
-      logWater(amount);
+      await logWater(amount);
       addMessage(`Logged ${amount} ml of water. You are at ${(state.hydration.ml / 1000).toFixed(1)} L of your ${(state.hydration.goal / 1000).toFixed(1)} L goal.`, "assistant");
       return;
     }
@@ -1163,7 +1586,7 @@ function processRequest(rawText) {
     if (/(meditat|mindful|breathing)/.test(lower)) {
       if (!ensureInstalled("mindfulness")) return;
       const minutes = Number((lower.match(/(\d+)\s*(?:minute|min)/) || [0, state.mindfulness.duration])[1]);
-      logMindfulness(minutes);
+      await logMindfulness(minutes);
       addMessage(`Nice work. I logged a ${minutes}-minute mindful moment.`, "assistant");
       return;
     }
@@ -1172,6 +1595,19 @@ function processRequest(rawText) {
       if (!ensureInstalled("sleep")) return;
       const hoursMatch = lower.match(/(\d+(?:\.\d+)?)\s*(?:hours?|hrs?|h)\b/);
       if (hoursMatch && /(slept|log|had)/.test(lower)) {
+        const minutes = Number(hoursMatch[1]) * 60;
+        const quality = minutes >= 420 ? "Good" : "Fair";
+        if (state.authenticated && authSession?.access_token) {
+          await createBackendEntry({
+            pluginId: "sleep",
+            entryType: "log_sleep",
+            value: minutes,
+            unit: "min",
+            metadata: { quality },
+          });
+          addMessage(`Logged ${formatMinutes(minutes)} of sleep. I marked the quality as ${quality.toLowerCase()}.`, "assistant");
+          return;
+        }
         state.sleep.minutes = Number(hoursMatch[1]) * 60;
         state.sleep.week[state.sleep.week.length - 1] = state.sleep.minutes;
         state.sleep.quality = state.sleep.minutes >= 420 ? "Good" : "Fair";
@@ -1200,6 +1636,18 @@ function processRequest(rawText) {
       }
       const amount = Number(amountMatch[1]);
       const category = classifyExpense(lower);
+      if (state.authenticated && authSession?.access_token) {
+        await createBackendEntry({
+          pluginId: "finance",
+          entryType: "log_expense",
+          value: amount,
+          unit: "usd",
+          metadata: { category, note: category },
+        });
+        addMessage(`Done. I added $${amount.toFixed(2)} to ${category.toLowerCase()}. You have $${formatMoney(state.finance.budget - state.finance.spending)} left in this month's budget.`, "assistant");
+        showToast("Expense added to Finance");
+        return;
+      }
       state.finance.spending += amount;
       addActivity({ plugin: "finance", title: `Added ${category.toLowerCase()} expense`, detail: `${category} - $${amount.toFixed(2)}` });
       saveState();
@@ -1211,13 +1659,23 @@ function processRequest(rawText) {
 
     if (/(complete|finished|did).*(workout|exercise|training)/.test(lower)) {
       if (!ensureInstalled("workout")) return;
-      completeWorkout();
+      await completeWorkout();
       addMessage(`Logged. That brings you to ${state.workout.completed} of ${state.workout.goal} workouts this week.`, "assistant");
       return;
     }
 
     if (/(workout|exercise|training|tomorrow)/.test(lower)) {
       if (!ensureInstalled("workout")) return;
+      if (state.authenticated && authSession?.access_token) {
+        await createBackendEntry({
+          pluginId: "workout",
+          entryType: "log_workout",
+          metadata: { exercise: "Full body mobility", title: "Full body mobility", plannedTime: "Tomorrow, 7:30 AM", duration: 35, completed: false },
+        });
+        addMessage("I planned a 35-minute full body mobility workout for tomorrow at 7:30 AM. It is now on your dashboard.", "assistant");
+        showToast("Workout added to your plan");
+        return;
+      }
       state.workout = { ...state.workout, title: "Full body mobility", time: "Tomorrow, 7:30 AM", duration: 35 };
       addActivity({ plugin: "workout", title: "Planned full body mobility", detail: "Tomorrow, 7:30 AM - 35 min" });
       saveState();
@@ -1237,6 +1695,18 @@ function processRequest(rawText) {
       if (!ensureInstalled("nutrition")) return;
       const calorieMatch = lower.match(/(\d+)\s*(?:cal|calories)/);
       const calories = calorieMatch ? Number(calorieMatch[1]) : 320;
+      if (state.authenticated && authSession?.access_token) {
+        await createBackendEntry({
+          pluginId: "nutrition",
+          entryType: "log_food",
+          value: calories,
+          unit: "cal",
+          metadata: { food: "meal from assistant", meal: "Meal", calories, protein: 18, carbs: 32, fats: 12 },
+        });
+        addMessage(`Logged that meal at an estimated ${calories} calories. Your daily total is now ${state.nutrition.calories.toLocaleString()} calories.`, "assistant");
+        showToast("Meal added to Nutrition");
+        return;
+      }
       state.nutrition.calories += calories;
       state.nutrition.protein += 18;
       state.nutrition.carbs += 32;
@@ -1258,7 +1728,7 @@ function processRequest(rawText) {
   }, 350);
 }
 
-document.addEventListener("click", (event) => {
+document.addEventListener("click", async (event) => {
   const authAction = event.target.closest("[data-auth-action]");
   if (authAction?.dataset.authAction === "sign-out") signOut();
   if (authAction?.dataset.authAction === "start-setup") showAccountSetup();
@@ -1271,14 +1741,14 @@ document.addEventListener("click", (event) => {
   if (viewTrigger) openView(viewTrigger.dataset.viewTrigger);
 
   const pluginToggle = event.target.closest("[data-plugin-toggle]");
-  if (pluginToggle) togglePlugin(pluginToggle.dataset.pluginToggle);
+  if (pluginToggle) await togglePlugin(pluginToggle.dataset.pluginToggle);
 
   const pluginOpen = event.target.closest("[data-plugin-open]");
   if (pluginOpen) openPlugin(pluginOpen.dataset.pluginOpen);
 
   const pluginAction = event.target.closest("[data-plugin-action]");
   if (pluginAction?.dataset.pluginAction === "mindfulness-start") {
-    logMindfulness(state.mindfulness.duration);
+    await logMindfulness(state.mindfulness.duration);
     openPlugin("mindfulness");
   }
   if (pluginAction?.dataset.pluginAction === "nutrition-scan") {
@@ -1303,15 +1773,15 @@ document.addEventListener("click", (event) => {
   const action = modalAction.dataset.modalAction;
   if (action === "close") closeModal();
   if (action === "add-water") {
-    logWater(Number(modalAction.dataset.amount));
+    await logWater(Number(modalAction.dataset.amount));
     openPlugin("hydration");
   }
   if (action === "complete-mindfulness") {
-    logMindfulness(Number(modalAction.dataset.amount));
+    await logMindfulness(Number(modalAction.dataset.amount));
     openPlugin("mindfulness");
   }
   if (action === "complete-workout") {
-    completeWorkout();
+    await completeWorkout();
     openPlugin("workout");
   }
   if (action === "open-nutrition-scan") openNutritionScan();
@@ -1339,7 +1809,7 @@ document.addEventListener("click", (event) => {
   if (action === "reset-account-data") resetAccountData();
 });
 
-document.addEventListener("submit", (event) => {
+document.addEventListener("submit", async (event) => {
   const form = event.target.closest("[data-form]");
   if (!form) return;
   event.preventDefault();
@@ -1348,11 +1818,28 @@ document.addEventListener("submit", (event) => {
 
   if (form.dataset.form === "meal") {
     const calories = Number(data.get("calories"));
+    const protein = Number(data.get("protein") || 0);
+    const carbs = Number(data.get("carbs") || 0);
+    const fats = Number(data.get("fats") || 0);
+    const food = String(data.get("description") || "meal");
+    if (state.authenticated && authSession?.access_token) {
+      await createBackendEntry({
+        pluginId: "nutrition",
+        entryType: "log_food",
+        value: calories,
+        unit: "cal",
+        metadata: { food, meal: "Meal", calories, protein, carbs, fats },
+      });
+      showToast("Meal added to Nutrition");
+      openPlugin("nutrition");
+      return;
+    }
+
     state.nutrition.calories += calories;
-    state.nutrition.protein += Number(data.get("protein") || 0);
-    state.nutrition.carbs += Number(data.get("carbs") || 0);
-    state.nutrition.fats += Number(data.get("fats") || 0);
-    addActivity({ plugin: "nutrition", title: `Logged ${data.get("description")}`, detail: `Meal - ${calories} cal` });
+    state.nutrition.protein += protein;
+    state.nutrition.carbs += carbs;
+    state.nutrition.fats += fats;
+    addActivity({ plugin: "nutrition", title: `Logged ${food}`, detail: `Meal - ${calories} cal` });
     showToast("Meal added to Nutrition");
     openPlugin("nutrition");
   }
@@ -1361,6 +1848,19 @@ document.addEventListener("submit", (event) => {
     const amount = Number(data.get("amount"));
     const category = String(data.get("category"));
     const note = String(data.get("note") || category);
+    if (state.authenticated && authSession?.access_token) {
+      await createBackendEntry({
+        pluginId: "finance",
+        entryType: "log_expense",
+        value: amount,
+        unit: "usd",
+        metadata: { category, note },
+      });
+      showToast("Expense added to Finance");
+      openPlugin("finance");
+      return;
+    }
+
     state.finance.spending += amount;
     addActivity({ plugin: "finance", title: `Added ${note}`, detail: `${category} - $${amount.toFixed(2)}` });
     showToast("Expense added to Finance");
@@ -1368,8 +1868,23 @@ document.addEventListener("submit", (event) => {
   }
 
   if (form.dataset.form === "sleep") {
-    state.sleep.minutes = Number(data.get("hours")) * 60;
-    state.sleep.quality = String(data.get("quality"));
+    const minutes = Number(data.get("hours")) * 60;
+    const quality = String(data.get("quality"));
+    if (state.authenticated && authSession?.access_token) {
+      await createBackendEntry({
+        pluginId: "sleep",
+        entryType: "log_sleep",
+        value: minutes,
+        unit: "min",
+        metadata: { quality },
+      });
+      showToast("Sleep summary updated");
+      openPlugin("sleep");
+      return;
+    }
+
+    state.sleep.minutes = minutes;
+    state.sleep.quality = quality;
     state.sleep.week[state.sleep.week.length - 1] = state.sleep.minutes;
     addActivity({ plugin: "sleep", title: "Updated sleep summary", detail: `${formatMinutes(state.sleep.minutes)} - ${state.sleep.quality} quality` });
     showToast("Sleep summary updated");
@@ -1377,9 +1892,23 @@ document.addEventListener("submit", (event) => {
   }
 
   if (form.dataset.form === "workout") {
-    state.workout.title = String(data.get("title"));
-    state.workout.time = String(data.get("time"));
-    state.workout.duration = Number(data.get("duration"));
+    const title = String(data.get("title"));
+    const time = String(data.get("time"));
+    const duration = Number(data.get("duration"));
+    if (state.authenticated && authSession?.access_token) {
+      await createBackendEntry({
+        pluginId: "workout",
+        entryType: "log_workout",
+        metadata: { exercise: title, title, plannedTime: time, duration, completed: false },
+      });
+      showToast("Workout plan updated");
+      openPlugin("workout");
+      return;
+    }
+
+    state.workout.title = title;
+    state.workout.time = time;
+    state.workout.duration = duration;
     addActivity({ plugin: "workout", title: `Planned ${state.workout.title.toLowerCase()}`, detail: `${state.workout.time} - ${state.workout.duration} min` });
     showToast("Workout plan updated");
     openPlugin("workout");
@@ -1388,6 +1917,7 @@ document.addEventListener("submit", (event) => {
   if (form.dataset.form === "profile") {
     state.profile.name = String(data.get("name"));
     state.profile.email = String(data.get("email"));
+    await saveProfileSettings({ displayName: state.profile.name });
     closeModal();
     showToast("Profile updated");
   }
@@ -1406,6 +1936,10 @@ document.addEventListener("submit", (event) => {
       hydrationGoal: tailored.hydrationGoal,
       weeklyWorkouts: tailored.weeklyWorkouts,
     };
+    await saveProfileSettings({
+      personal: state.profile.personal,
+      goals: state.profile.goals,
+    });
     closeModal();
     showToast("Personal data updated");
   }
@@ -1420,12 +1954,14 @@ document.addEventListener("submit", (event) => {
       hydrationGoal: Number(data.get("hydrationGoal")),
       weeklyWorkouts: Number(data.get("weeklyWorkouts")),
     };
+    await saveProfileSettings({ goals: state.profile.goals });
     closeModal();
     showToast("Goals updated");
   }
 
   if (form.dataset.form === "account-setup") {
     applyAccountSetup(data);
+    await saveProfileSettings();
     hideAccountSetup();
     closeModal();
     shouldOpenHome = true;
@@ -1435,6 +1971,7 @@ document.addEventListener("submit", (event) => {
   if (form.dataset.form === "notifications") {
     state.profile.notifications = data.has("notifications");
     state.profile.weeklySummary = data.has("weeklySummary");
+    await saveProfileSettings();
     closeModal();
     showToast("Notification settings saved");
   }
@@ -1444,6 +1981,7 @@ document.addEventListener("submit", (event) => {
     state.profile.units = String(data.get("units") || state.profile.units);
     state.profile.assistantInsights = data.has("assistantInsights");
     state.profile.compactCards = data.has("compactCards");
+    await saveProfileSettings();
     closeModal();
     showToast("Dashboard preferences saved");
   }
@@ -1468,10 +2006,25 @@ activitySearch.addEventListener("input", () => {
   renderActivity();
 });
 
-loginForm.addEventListener("submit", (event) => {
+loginForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const data = new FormData(loginForm);
-  signIn(String(data.get("email") || state.profile.email));
+  try {
+    await signIn(String(data.get("email") || state.profile.email));
+  } catch (error) {
+    showToast(error.message || "Unable to send sign-in code");
+  }
+});
+
+otpForm?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const data = new FormData(otpForm);
+  try {
+    await completeSignIn(String(data.get("code") || ""));
+    otpForm.reset();
+  } catch (error) {
+    showToast(error.message || "Unable to verify sign-in code");
+  }
 });
 
 document.querySelectorAll(".suggestion-chip").forEach((button) => {
@@ -1544,4 +2097,19 @@ micButton.addEventListener("click", () => {
 });
 
 installStaticIcons();
-renderAll();
+
+async function initializeApp() {
+  renderAll();
+  if (!authSession?.access_token) return;
+
+  try {
+    await loadBackendData();
+  } catch (error) {
+    saveSession(null);
+    state.authenticated = false;
+    renderAll();
+    showToast(error.message || "Please sign in again");
+  }
+}
+
+initializeApp();

@@ -139,6 +139,22 @@ body.signed-out .app-shell {
   padding-top: 2px;
 }
 
+.otp-panel {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel-soft);
+}
+
+.otp-panel p {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
 .account-setup-panel {
   padding-top: 18px;
   border-top: 1px solid var(--line);

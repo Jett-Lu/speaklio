@@ -36,8 +36,16 @@
         <form class="auth-form" id="login-form">
           <label for="login-email">Email</label>
           <input id="login-email" name="email" type="email" value="jordan@example.com" autocomplete="email" required />
-          <button class="primary-button" type="submit">Sign in</button>
+          <button class="primary-button" type="submit">Send code</button>
         </form>
+        <section class="otp-panel" id="otp-panel" hidden>
+          <p id="auth-status">Check Mailpit for your sign-in code.</p>
+          <form class="auth-form" id="otp-form">
+            <label for="login-code">Code</label>
+            <input id="login-code" name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" required />
+            <button class="primary-button" type="submit">Verify code</button>
+          </form>
+        </section>
         <div class="auth-actions">
           <button class="text-button" type="button" data-auth-action="start-setup">Create a new account</button>
         </div>
@@ -699,6 +707,7 @@
       <div class="toast" id="toast" role="status" aria-live="polite"></div>
       <div class="overlay" id="overlay"></div>
     </div>
+    <script src="config.js"></script>
     <script src="app.js"></script>
   </body>
 </html>
