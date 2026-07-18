@@ -26,7 +26,7 @@ export function toActivityResponse(activity: ActivityRow) {
   };
 }
 
-function summarizeEntry(entry: Record<string, unknown>) {
+export function summarizeEntry(entry: Record<string, unknown>) {
   const metadata = entry.metadata && typeof entry.metadata === "object"
     ? entry.metadata as Record<string, unknown>
     : {};

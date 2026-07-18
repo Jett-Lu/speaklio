@@ -28,6 +28,7 @@ Started on July 18, 2026:
 - Added a visible backend refresh failure banner with retry, and stopped clearing the saved session on startup API failures.
 - Reset local state on sign-out so signed-in dashboard data is not written back into signed-out local storage.
 - Made profile email read-only for signed-in users and stopped profile saves from mutating local auth email until an email-change confirmation flow exists.
+- Added a Node built-in backend test runner and coverage for profile updates, plugin enablement, entry CRUD/validation, activity listing, dashboard summary, AI preview/confirm, AI mapping, and activity summaries.
 
 ## Goal
 
