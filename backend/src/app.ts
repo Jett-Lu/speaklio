@@ -5,6 +5,7 @@ import { aiRouter } from "./routes/ai.js";
 import { dashboardRouter } from "./routes/dashboard.js";
 import { entriesRouter } from "./routes/entries.js";
 import { healthRouter } from "./routes/health.js";
+import { integrationsRouter } from "./routes/integrations.js";
 import { meRouter } from "./routes/me.js";
 import { pluginsRouter } from "./routes/plugins.js";
 
@@ -26,6 +27,7 @@ export function createApp() {
   app.use("/activities", activitiesRouter);
   app.use("/dashboard", dashboardRouter);
   app.use("/entries", entriesRouter);
+  app.use("/integrations", integrationsRouter);
   app.use("/ai", aiRouter);
   app.use("/plugins", pluginsRouter);
 

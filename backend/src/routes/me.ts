@@ -27,6 +27,7 @@ const preferencesSchema = z.object({
   weeklySummary: z.boolean().optional(),
   assistantInsights: z.boolean().optional(),
   compactCards: z.boolean().optional(),
+  monthlyBudget: z.number().min(0).max(100000).optional(),
 });
 
 const profileUpdateSchema = z.object({

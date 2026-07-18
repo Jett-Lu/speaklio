@@ -66,6 +66,19 @@ body.signed-out .app-shell {
   display: none;
 }
 
+body.remote-loading .main-content {
+  cursor: progress;
+}
+
+body.remote-loading .page-heading,
+body.remote-loading .dashboard-grid,
+body.remote-loading .activity-layout,
+body.remote-loading .plugin-grid,
+body.remote-loading .profile-card,
+body.remote-loading .profile-overview-grid {
+  opacity: 0.82;
+}
+
 .auth-card {
   display: grid;
   width: min(430px, 100%);

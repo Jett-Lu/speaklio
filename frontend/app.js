@@ -4,6 +4,7 @@ const config = window.SPEAKLIO_CONFIG || {};
 const API_BASE_URL = config.API_BASE_URL || "http://localhost:3000";
 const SUPABASE_URL = config.SUPABASE_URL || "http://127.0.0.1:54321";
 const SUPABASE_PUBLISHABLE_KEY = config.SUPABASE_PUBLISHABLE_KEY || "";
+const ASSISTANT_REGEX_FALLBACK_ENABLED = config.ENABLE_ASSISTANT_REGEX_FALLBACK === true || config.ENABLE_ASSISTANT_REGEX_FALLBACK === "true";
 
 let authSession = loadSession();
 
@@ -59,7 +60,7 @@ let pluginUiConfig = {
   },
 };
 
-const integrationCatalog = {
+let integrationCatalog = {
   "apple-health": {
     name: "Apple Health",
     icon: "watch",
@@ -102,48 +103,66 @@ function syncStarterChatGreeting(targetState) {
   }
 }
 
-function makeDefaultState() {
+function defaultProfileSettings() {
   return {
-    authenticated: Boolean(authSession?.access_token),
-    profile: {
-      name: "there",
-      email: "",
-      timezone: "America/Toronto",
-      units: "Metric",
-      notifications: true,
-      weeklySummary: true,
-      assistantInsights: true,
-      compactCards: false,
-      personal: {
-        age: 29,
-        heightCm: 178,
-        weightKg: 78,
-        activityLevel: "moderate",
-      },
-      goals: {
-        primaryGoal: "maintain",
-        targetWeightKg: 75,
-        calorieGoal: 2100,
-        proteinGoal: 120,
-        hydrationGoal: 2700,
-        weeklyWorkouts: 4,
-      },
+    name: "there",
+    email: "",
+    timezone: "America/Toronto",
+    units: "Metric",
+    notifications: true,
+    weeklySummary: true,
+    assistantInsights: true,
+    compactCards: false,
+    monthlyBudget: 2000,
+    personal: {
+      age: 29,
+      heightCm: 178,
+      weightKg: 78,
+      activityLevel: "moderate",
     },
-    nutrition: { calories: 0, goal: 2100, protein: 0, carbs: 0, fats: 0 },
-    finance: { spending: 0, budget: 2000 },
+    goals: {
+      primaryGoal: "maintain",
+      targetWeightKg: 75,
+      calorieGoal: 2100,
+      proteinGoal: 120,
+      hydrationGoal: 2700,
+      weeklyWorkouts: 4,
+    },
+  };
+}
+
+function emptyDashboardState(profile = defaultProfileSettings()) {
+  return {
+    nutrition: { calories: 0, goal: profile.goals.calorieGoal, protein: 0, carbs: 0, fats: 0 },
+    finance: { spending: 0, budget: profile.monthlyBudget },
     sleep: { minutes: 0, quality: "Not logged", week: [0, 0, 0, 0, 0, 0, 0] },
-    workout: { title: "No workout planned", time: "Not scheduled", duration: 0, completed: 0, goal: 4 },
-    hydration: { ml: 0, goal: 2700 },
+    workout: { title: "No workout planned", time: "Not scheduled", duration: 0, completed: 0, goal: profile.goals.weeklyWorkouts },
+    hydration: { ml: 0, goal: profile.goals.hydrationGoal },
     mindfulness: { count: 0, title: "Mindful moment", duration: 10 },
     dashboardInsights: null,
+  };
+}
+
+function localUiDefaults(profile = defaultProfileSettings()) {
+  return {
     installedPlugins: new Set(),
     currentView: "home",
     activityFilter: "all",
     activitySearch: "",
     activities: [],
     chats: [
-      { sender: "assistant", text: starterChatText("there") },
+      { sender: "assistant", text: starterChatText(profile.name) },
     ],
+  };
+}
+
+function makeDefaultState() {
+  const profile = defaultProfileSettings();
+  return {
+    authenticated: Boolean(authSession?.access_token),
+    profile,
+    ...emptyDashboardState(profile),
+    ...localUiDefaults(profile),
   };
 }
 
@@ -223,6 +242,7 @@ const assistantPreviewCopy = document.getElementById("assistant-preview-copy");
 const backendStatus = document.getElementById("backend-status");
 const backendStatusCopy = document.getElementById("backend-status-copy");
 let pendingAssistantPreview = null;
+let backendLoading = false;
 const loginForm = document.getElementById("login-form");
 const loginEmail = document.getElementById("login-email");
 const otpPanel = document.getElementById("otp-panel");
@@ -291,9 +311,27 @@ function presetButtons(values, action, formatter) {
     .join("");
 }
 
+function setIntegrationCatalog(integrations) {
+  if (!Array.isArray(integrations)) return;
+  integrationCatalog = integrations.reduce((catalog, integration) => {
+    const id = String(integration.id || "");
+    if (!id) return catalog;
+    catalog[id] = {
+      ...(catalog[id] || {}),
+      ...integration,
+      permissions: {
+        ...(catalog[id]?.permissions || {}),
+        ...(integration.permissions && typeof integration.permissions === "object" ? integration.permissions : {}),
+      },
+    };
+    return catalog;
+  }, { ...integrationCatalog });
+}
+
 function integrationCardMarkup(integrationId) {
   const integration = integrationCatalog[integrationId];
   if (!integration) return "";
+  const statusLabel = integration.connected ? "Connected" : integration.statusLabel || "Coming soon";
 
   return `
     <article class="integration-card">
@@ -302,7 +340,7 @@ function integrationCardMarkup(integrationId) {
         <strong>${escapeHtml(integration.name)}</strong>
         <small>${escapeHtml(integration.panelCopy)}</small>
       </div>
-      <button class="store-detail-button" type="button" data-integration-action="${escapeHtml(integrationId)}">Coming soon</button>
+      <button class="store-detail-button" type="button" data-integration-action="${escapeHtml(integrationId)}">${escapeHtml(statusLabel)}</button>
     </article>
   `;
 }
@@ -333,7 +371,7 @@ function getTailoredGoals({ weightKg, primaryGoal, activityLevel }) {
 }
 
 function initials(name) {
-  return String(name).split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase() || "JM";
+  return String(name).split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase() || "SP";
 }
 
 function iconMarkup(name) {
@@ -424,6 +462,33 @@ async function apiRequest(path, options = {}) {
   });
   return parseJsonResponse(response);
 }
+
+const apiClient = {
+  me: () => apiRequest("/me"),
+  plugins: () => apiRequest("/plugins"),
+  integrations: () => apiRequest("/integrations"),
+  dashboardSummary: () => apiRequest("/dashboard/summary"),
+  activities: ({ limit = 100 } = {}) => apiRequest(`/activities?limit=${encodeURIComponent(limit)}`),
+  createEntry: (entry) => apiRequest("/entries", {
+    method: "POST",
+    body: JSON.stringify(entry),
+  }),
+  updateProfile: (profile) => apiRequest("/me/profile", {
+    method: "PATCH",
+    body: JSON.stringify(profile),
+  }),
+  previewAssistantEntry: (text) => apiRequest("/ai/preview-entry", {
+    method: "POST",
+    body: JSON.stringify({ text }),
+  }),
+  confirmAssistantActions: (entries) => apiRequest("/ai/confirm-actions", {
+    method: "POST",
+    body: JSON.stringify({ entries }),
+  }),
+  setPluginEnabled: (pluginId, enabled) => apiRequest(`/plugins/${encodeURIComponent(pluginId)}/enable`, {
+    method: enabled ? "PUT" : "DELETE",
+  }),
+};
 
 function setPluginCatalog(nextPlugins) {
   if (!Array.isArray(nextPlugins) || nextPlugins.length === 0) return;
@@ -676,36 +741,42 @@ function applyRemoteProfile(payload) {
     ...state.profile,
     ...(payload.profile?.preferences && typeof payload.profile.preferences === "object" ? payload.profile.preferences : {}),
   };
+  state.profile.monthlyBudget = Number(state.profile.monthlyBudget || state.finance.budget || 2000);
+  state.finance.budget = state.profile.monthlyBudget;
   syncStarterChatGreeting(state);
 }
 
-async function loadBackendData() {
-  const [me, pluginPayload, summaryPayload, activityPayload] = await Promise.all([
-    apiRequest("/me"),
-    apiRequest("/plugins"),
-    apiRequest("/dashboard/summary"),
-    apiRequest("/activities?limit=100"),
-  ]);
-  applyRemoteProfile(me);
-  setPluginCatalog(pluginPayload.plugins || []);
-  state.installedPlugins = new Set((pluginPayload.plugins || []).filter((plugin) => plugin.enabled).map((plugin) => plugin.id));
-  applyDashboardSummary(summaryPayload);
-  applyActivities(activityPayload.activities || []);
-  state.authenticated = true;
-  clearBackendStatus();
-  saveState();
-  renderAll();
+async function loadRemoteAppState() {
+  setBackendLoading(true);
+  try {
+    const [me, pluginPayload, summaryPayload, activityPayload, integrationPayload] = await Promise.all([
+      apiClient.me(),
+      apiClient.plugins(),
+      apiClient.dashboardSummary(),
+      apiClient.activities(),
+      apiClient.integrations(),
+    ]);
+    applyRemoteProfile(me);
+    setPluginCatalog(pluginPayload.plugins || []);
+    setIntegrationCatalog(integrationPayload.integrations || []);
+    state.installedPlugins = new Set((pluginPayload.plugins || []).filter((plugin) => plugin.enabled).map((plugin) => plugin.id));
+    applyDashboardSummary(summaryPayload);
+    applyActivities(activityPayload.activities || []);
+    state.authenticated = true;
+    clearBackendStatus();
+    saveState();
+    renderAll();
+  } finally {
+    setBackendLoading(false);
+  }
 }
 
 async function createBackendEntry(entry) {
-  const payload = await apiRequest("/entries", {
-    method: "POST",
-    body: JSON.stringify({
-      occurredAt: new Date().toISOString(),
-      ...entry,
-    }),
+  const payload = await apiClient.createEntry({
+    occurredAt: new Date().toISOString(),
+    ...entry,
   });
-  await loadBackendData();
+  await loadRemoteAppState();
   return payload;
 }
 
@@ -721,6 +792,7 @@ function currentProfilePayload() {
       weeklySummary: state.profile.weeklySummary,
       assistantInsights: state.profile.assistantInsights,
       compactCards: state.profile.compactCards,
+      monthlyBudget: state.profile.monthlyBudget ?? state.finance.budget,
     },
   };
 }
@@ -731,10 +803,7 @@ async function saveProfileSettings(overrides = {}) {
     ...currentProfilePayload(),
     ...overrides,
   };
-  const result = await apiRequest("/me/profile", {
-    method: "PATCH",
-    body: JSON.stringify(payload),
-  });
+  const result = await apiClient.updateProfile(payload);
   applyRemoteProfile({ profile: result.profile });
   saveState();
   renderAll();
@@ -781,7 +850,22 @@ function showToast(message) {
 }
 
 function clearBackendStatus() {
-  if (backendStatus) backendStatus.hidden = true;
+  if (backendStatus) {
+    delete backendStatus.dataset.error;
+    backendStatus.hidden = true;
+  }
+}
+
+function setBackendLoading(isLoading) {
+  backendLoading = isLoading;
+  document.body.classList.toggle("remote-loading", backendLoading);
+  if (!backendStatus || !backendStatusCopy) return;
+  if (backendLoading) {
+    backendStatusCopy.textContent = "Loading your Speaklio data...";
+    backendStatus.hidden = false;
+  } else if (!backendStatus.dataset.error) {
+    backendStatus.hidden = true;
+  }
 }
 
 function showBackendLoadError(error) {
@@ -789,7 +873,10 @@ function showBackendLoadError(error) {
   if (backendStatusCopy) {
     backendStatusCopy.textContent = `Your session is still saved. ${detail}`;
   }
-  if (backendStatus) backendStatus.hidden = false;
+  if (backendStatus) {
+    backendStatus.dataset.error = "true";
+    backendStatus.hidden = false;
+  }
   showToast("Unable to refresh backend data");
 }
 
@@ -1070,6 +1157,12 @@ function renderPlugins() {
   });
 }
 
+function renderIntegrations() {
+  const integrationGrid = document.getElementById("integration-grid");
+  if (!integrationGrid) return;
+  integrationGrid.innerHTML = Object.keys(integrationCatalog).map(integrationCardMarkup).join("");
+}
+
 function renderChats() {
   chatStream.innerHTML = `<div class="chat-day">TODAY</div>${state.chats.map((message) => `
     <div class="chat-bubble ${escapeHtml(message.sender)}">
@@ -1094,6 +1187,7 @@ function renderAll() {
   updateMetrics();
   renderActivity();
   renderPlugins();
+  renderIntegrations();
   renderChats();
 }
 
@@ -1115,7 +1209,7 @@ async function completeSignIn(code) {
   state.authenticated = true;
   hideAccountSetup();
   try {
-    await loadBackendData();
+    await loadRemoteAppState();
     openView("home");
     showToast("Signed in to Speaklio");
   } catch (error) {
@@ -1383,10 +1477,7 @@ function editedAssistantEntry(entry, data, index) {
 
 async function previewBackendAssistantRequest(text) {
   try {
-    const payload = await apiRequest("/ai/preview-entry", {
-      method: "POST",
-      body: JSON.stringify({ text }),
-    });
+    const payload = await apiClient.previewAssistantEntry(text);
     const previews = Array.isArray(payload.previews) ? payload.previews : [];
     const entries = previews
       .map((preview) => preview.entry)
@@ -1408,7 +1499,12 @@ async function previewBackendAssistantRequest(text) {
     return true;
   } catch (error) {
     pendingAssistantPreview = null;
-    setAssistantPreview("Assistant fallback", "Local AI is unavailable, so Speaklio will use the basic logger for this request.");
+    setAssistantPreview(
+      "Assistant unavailable",
+      ASSISTANT_REGEX_FALLBACK_ENABLED
+        ? "Local AI is unavailable, so Speaklio will use the development fallback for this request."
+        : "Local AI is unavailable. Use a plugin form or try again when the assistant service is back.",
+    );
     return false;
   }
 }
@@ -1419,14 +1515,11 @@ async function confirmAssistantPreview() {
     return;
   }
 
-  const payload = await apiRequest("/ai/confirm-actions", {
-    method: "POST",
-    body: JSON.stringify({ entries: pendingAssistantPreview.entries }),
-  });
+  const payload = await apiClient.confirmAssistantActions(pendingAssistantPreview.entries);
   const count = payload.entries?.length || pendingAssistantPreview.entries.length;
   pendingAssistantPreview = null;
   setAssistantPreview("No pending action", "Ask Speaklio to log something and this panel will prepare a structured update for your review.");
-  await loadBackendData();
+  await loadRemoteAppState();
   addMessage(`Saved ${count} ${count === 1 ? "entry" : "entries"} to your dashboard.`, "assistant");
   showToast("Assistant action saved");
 }
@@ -1593,6 +1686,7 @@ function openNutritionScan() {
 function openIntegration(integrationId) {
   const integration = integrationCatalog[integrationId];
   if (!integration) return;
+  const statusLabel = integration.connected ? "connected" : (integration.statusLabel || "coming soon").toLowerCase();
 
   openModal({
     eyebrow: "CONNECTED HEALTH",
@@ -1601,7 +1695,7 @@ function openIntegration(integrationId) {
       <div class="integration-detail">
         <span class="plugin-icon ${escapeHtml(integration.color)}">${iconMarkup(integration.icon)}</span>
         <div>
-          <h3>${escapeHtml(integration.name)} sync is coming soon</h3>
+          <h3>${escapeHtml(integration.name)} sync is ${escapeHtml(statusLabel)}</h3>
           <p>${escapeHtml(integration.detailCopy)}</p>
         </div>
       </div>
@@ -1651,6 +1745,61 @@ function applyAccountSetup(data) {
   };
 }
 
+function pluginInsight(pluginId) {
+  const attention = state.dashboardInsights?.attention || {};
+  if (pluginId === "nutrition") {
+    return attention.nutrition || {
+      title: state.nutrition.calories ? "Nutrition pacing" : "No meals logged",
+      copy: state.nutrition.calories
+        ? `${Math.max(0, state.profile.goals.proteinGoal - state.nutrition.protein)}g protein left for today's goal.`
+        : "Nutrition insights appear after you log food or calories.",
+    };
+  }
+  if (pluginId === "finance") {
+    const budgetLeft = state.finance.budget - state.finance.spending;
+    return attention.finance || {
+      title: budgetLeft >= 0 ? "Budget pace" : "Budget overrun",
+      copy: budgetLeft >= 0
+        ? `$${formatMoney(budgetLeft)} left this month.`
+        : `$${formatMoney(Math.abs(budgetLeft))} over budget.`,
+    };
+  }
+  if (pluginId === "sleep") {
+    return attention.sleep || {
+      title: state.sleep.minutes ? "Sleep consistency" : "No sleep logged",
+      copy: state.sleep.minutes ? `Last sleep was ${formatMinutes(state.sleep.minutes)}.` : "Sleep insights appear after you log rest.",
+    };
+  }
+  if (pluginId === "workout") {
+    const agenda = state.dashboardInsights?.agenda?.workout;
+    return {
+      title: agenda?.title || "Workout plan",
+      copy: agenda?.meta || `${state.workout.completed} of ${state.workout.goal} weekly workouts completed.`,
+    };
+  }
+  if (pluginId === "hydration") {
+    const remaining = Math.max(0, state.hydration.goal - state.hydration.ml);
+    return {
+      title: remaining ? "Hydration pace" : "Hydration goal reached",
+      copy: remaining ? `${remaining} ml left for today's water goal.` : "You are at or above today's water goal.",
+    };
+  }
+  if (pluginId === "mindfulness") {
+    return {
+      title: state.mindfulness.count ? "Mindfulness this week" : "No mindful moments logged",
+      copy: state.mindfulness.count
+        ? `${state.mindfulness.count} mindful ${state.mindfulness.count === 1 ? "moment" : "moments"} logged this week.`
+        : "Mindfulness insights appear after your first session.",
+    };
+  }
+  return { title: "Plugin insight", copy: "Insights appear after you log activity." };
+}
+
+function pluginInsightNote(pluginId) {
+  const insight = pluginInsight(pluginId);
+  return insightNote(insight.title, insight.copy);
+}
+
 function openPlugin(pluginId) {
   const plugin = pluginMap[pluginId];
   if (!plugin) return;
@@ -1668,7 +1817,7 @@ function openPlugin(pluginId) {
         ${stat("Protein", `${state.nutrition.protein}g`)}
         ${stat("Carbs", `${state.nutrition.carbs}g`)}
       </div>
-      ${insightNote("Protein is the lever", "A protein-forward dinner would make today's nutrition feel complete without pushing calories too high.")}
+      ${pluginInsightNote("nutrition")}
       ${nutritionScanPanel()}
       <form class="quick-form" data-form="meal">
         <h3>Log a meal</h3>
@@ -1687,7 +1836,7 @@ function openPlugin(pluginId) {
         ${stat("Monthly budget", `$${formatMoney(state.finance.budget)}`)}
         ${stat("Remaining", `$${formatMoney(state.finance.budget - state.finance.spending)}`)}
       </div>
-      ${insightNote("Budget pace looks stable", "You are still under budget. Keep dining entries specific so weekly summaries stay useful.")}
+      ${pluginInsightNote("finance")}
       <form class="quick-form" data-form="expense">
         <h3>Log an expense</h3>
         <div class="form-grid">
@@ -1703,11 +1852,11 @@ function openPlugin(pluginId) {
         ${stat("Quality", state.sleep.quality)}
         ${stat("Weekly average", formatMinutes(state.sleep.week.reduce((sum, value) => sum + value, 0) / state.sleep.week.length))}
       </div>
-      ${insightNote("Consistency beats perfection", "Your best nights cluster around similar bedtimes. Speaklio can use that rhythm for smarter reminders.")}
+      ${pluginInsightNote("sleep")}
       <form class="quick-form" data-form="sleep">
         <h3>Log last night's sleep</h3>
         <div class="form-grid">
-          <label>Hours slept<input required name="hours" type="number" min="0" max="16" step="0.1" value="${(state.sleep.minutes / 60).toFixed(1)}" /></label>
+          <label>Hours slept<input required name="hours" type="number" min="0" max="16" step="0.1" value="${state.sleep.minutes ? (state.sleep.minutes / 60).toFixed(1) : ""}" /></label>
           <label>Quality<select name="quality">${optionsMarkup(pluginUiConfig.sleep.qualityOptions, state.sleep.quality)}</select></label>
         </div>
         <button class="primary-button" type="submit">Save sleep</button>
@@ -1718,14 +1867,14 @@ function openPlugin(pluginId) {
         ${stat("When", state.workout.time)}
         ${stat("Weekly progress", `${state.workout.completed} / ${state.workout.goal}`)}
       </div>
-      ${insightNote("One session to go", "Completing the next workout will close your weekly goal and lift the balance score.")}
+      ${pluginInsightNote("workout")}
       <button class="wide-action-button" data-modal-action="complete-workout">${iconMarkup("bolt")} Mark current workout complete</button>
       <form class="quick-form" data-form="workout">
         <h3>Plan your next workout</h3>
-        <label>Workout name<input required name="title" value="${escapeHtml(state.workout.title)}" /></label>
+        <label>Workout name<input required name="title" value="${state.workout.title === "No workout planned" ? "" : escapeHtml(state.workout.title)}" /></label>
         <div class="form-grid">
-          <label>When<input required name="time" value="${escapeHtml(state.workout.time)}" /></label>
-          <label>Minutes<input required name="duration" type="number" min="5" value="${state.workout.duration}" /></label>
+          <label>When<input required name="time" value="${state.workout.time === "Not scheduled" ? "" : escapeHtml(state.workout.time)}" /></label>
+          <label>Minutes<input required name="duration" type="number" min="5" value="${state.workout.duration || ""}" /></label>
         </div>
         <button class="primary-button" type="submit">Save workout</button>
       </form>${footer}`,
@@ -1735,7 +1884,7 @@ function openPlugin(pluginId) {
         ${stat("Daily goal", `${(state.hydration.goal / 1000).toFixed(1)} L`)}
         ${stat("Remaining", `${(Math.max(0, state.hydration.goal - state.hydration.ml) / 1000).toFixed(1)} L`)}
       </div>
-      ${insightNote("Small sips count", "Quick presets make this plugin feel fast now and easy to wire to real entries later.")}
+      ${pluginInsightNote("hydration")}
       <div class="quick-form">
         <h3>Add water</h3>
         <div class="preset-row">
@@ -1748,7 +1897,7 @@ function openPlugin(pluginId) {
         ${stat("Suggested", state.mindfulness.title)}
         ${stat("Default session", `${state.mindfulness.duration} min`)}
       </div>
-      ${insightNote("Keep it lightweight", "Mindfulness should stay low-friction: choose a duration, complete it, and move on.")}
+      ${pluginInsightNote("mindfulness")}
       <div class="quick-form">
         <h3>Complete a mindful moment</h3>
         <p>Choose a short breathing session. Speaklio will log it as completed.</p>
@@ -1767,10 +1916,8 @@ async function togglePlugin(pluginId) {
   const installed = state.installedPlugins.has(pluginId);
 
   if (state.authenticated && authSession?.access_token) {
-    await apiRequest(`/plugins/${encodeURIComponent(pluginId)}/enable`, {
-      method: installed ? "DELETE" : "PUT",
-    });
-    await loadBackendData();
+    await apiClient.setPluginEnabled(pluginId, !installed);
+    await loadRemoteAppState();
     closeModal();
     showToast(`${plugin.name} ${installed ? "removed from" : "added to"} your dashboard`);
     return;
@@ -2023,6 +2170,7 @@ function openProfileAction(action) {
               ${optionMarkup("Metric", "Metric", state.profile.units)}
               ${optionMarkup("Imperial", "Imperial", state.profile.units)}
             </select></label>
+            <label>Monthly budget<input required name="monthlyBudget" type="number" min="0" max="100000" step="1" value="${state.profile.monthlyBudget ?? state.finance.budget}" /></label>
           </div>
           <label class="toggle-row"><span><strong>Assistant insights</strong><small>Let Speaklio offer simple proactive suggestions.</small></span><input name="assistantInsights" type="checkbox" ${state.profile.assistantInsights ? "checked" : ""} /></label>
           <label class="toggle-row"><span><strong>Compact dashboard cards</strong><small>Reduce spacing when you want a denser overview.</small></span><input name="compactCards" type="checkbox" ${state.profile.compactCards ? "checked" : ""} /></label>
@@ -2071,7 +2219,7 @@ function classifyExpense(text) {
   return categories.includes("Other") ? "Other" : categories[0];
 }
 
-function processRequest(rawText) {
+async function processRequest(rawText) {
   const text = rawText.trim();
   const lower = text.toLowerCase();
   if (!text) return;
@@ -2079,10 +2227,16 @@ function processRequest(rawText) {
   previewAssistantRequest(text);
   input.value = "";
 
-  setTimeout(async () => {
-    if (state.authenticated && authSession?.access_token && await previewBackendAssistantRequest(text)) {
+  if (state.authenticated && authSession?.access_token) {
+    if (await previewBackendAssistantRequest(text)) {
       return;
     }
+
+    if (!ASSISTANT_REGEX_FALLBACK_ENABLED) {
+      addMessage("I could not prepare a backend action for that. Try again with the amount, duration, or item name, or use the plugin form.", "assistant");
+      return;
+    }
+  }
 
     const waterMatch = lower.match(/(\d+(?:\.\d+)?)\s*(ml|milliliters?|l|liters?)/);
     if (/(water|drank|hydrate|hydration)/.test(lower) && waterMatch) {
@@ -2240,15 +2394,14 @@ function processRequest(rawText) {
       return;
     }
 
-    addMessage("I can help with meals, expenses, sleep, workouts, water, and mindful moments. Ask for a summary or tell me what to log.", "assistant");
-  }, 350);
+  addMessage("I can help with meals, expenses, sleep, workouts, water, and mindful moments. Ask for a summary or tell me what to log.", "assistant");
 }
 
 document.addEventListener("click", async (event) => {
   const backendAction = event.target.closest("[data-backend-action]");
   if (backendAction?.dataset.backendAction === "retry") {
     try {
-      await loadBackendData();
+      await loadRemoteAppState();
       showToast("Backend data refreshed");
     } catch (error) {
       showBackendLoadError(error);
@@ -2527,6 +2680,8 @@ document.addEventListener("submit", async (event) => {
   if (form.dataset.form === "preferences") {
     state.profile.timezone = String(data.get("timezone") || state.profile.timezone);
     state.profile.units = String(data.get("units") || state.profile.units);
+    state.profile.monthlyBudget = Number(data.get("monthlyBudget") || state.profile.monthlyBudget || state.finance.budget);
+    state.finance.budget = state.profile.monthlyBudget;
     state.profile.assistantInsights = data.has("assistantInsights");
     state.profile.compactCards = data.has("compactCards");
     await saveProfileSettings();
@@ -2576,12 +2731,14 @@ otpForm?.addEventListener("submit", async (event) => {
 });
 
 document.querySelectorAll(".suggestion-chip").forEach((button) => {
-  button.addEventListener("click", () => processRequest(button.textContent));
+  button.addEventListener("click", () => {
+    processRequest(button.textContent).catch((error) => showToast(error.message || "Unable to process assistant request"));
+  });
 });
 
 document.getElementById("assistant-form").addEventListener("submit", (event) => {
   event.preventDefault();
-  processRequest(input.value);
+  processRequest(input.value).catch((error) => showToast(error.message || "Unable to process assistant request"));
 });
 
 document.getElementById("open-assistant").addEventListener("click", showAssistant);
@@ -2644,7 +2801,9 @@ micButton.addEventListener("click", () => {
   recognition.lang = "en-US";
   recognition.interimResults = false;
   recognition.maxAlternatives = 1;
-  recognition.onresult = (event) => processRequest(event.results[0][0].transcript);
+  recognition.onresult = (event) => {
+    processRequest(event.results[0][0].transcript).catch((error) => showToast(error.message || "Unable to process voice request"));
+  };
   recognition.onerror = () => showToast("I could not hear that. Try typing your request.");
   recognition.onend = () => {
     micButton.classList.remove("listening");
@@ -2656,12 +2815,13 @@ micButton.addEventListener("click", () => {
 installStaticIcons();
 
 async function initializeApp() {
+  if (authSession?.access_token) setBackendLoading(true);
   renderAll();
   openView(state.currentView || "home");
   if (!authSession?.access_token) return;
 
   try {
-    await loadBackendData();
+    await loadRemoteAppState();
   } catch (error) {
     state.authenticated = true;
     saveState();

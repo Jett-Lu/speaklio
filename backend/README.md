@@ -49,10 +49,14 @@ Current routes:
 - `PUT /plugins/:pluginId/enable`
 - `DELETE /plugins/:pluginId/enable`
 - `GET /entries`
+- `GET /entries/summary`
 - `POST /entries`
 - `GET /entries/:id`
 - `PATCH /entries/:id`
 - `DELETE /entries/:id`
+- `GET /activities`
+- `GET /integrations`
+- `GET /dashboard/summary`
 
 ## Setup
 
@@ -112,10 +116,14 @@ npm run start
 - `PUT /plugins/:pluginId/enable` - enables a plugin for the current user.
 - `DELETE /plugins/:pluginId/enable` - disables a plugin for the current user.
 - `GET /entries` - lists the current user's metric entries.
+- `GET /entries/summary` - aggregates entries across a caller-supplied date window.
 - `POST /entries` - creates a metric entry and related activity row for the current user.
 - `GET /entries/:id` - reads one metric entry owned by the current user.
 - `PATCH /entries/:id` - updates one metric entry owned by the current user.
 - `DELETE /entries/:id` - deletes one metric entry owned by the current user.
+- `GET /activities` - lists backend-generated timeline rows for the current user.
+- `GET /integrations` - returns current connected-app availability/status metadata.
+- `GET /dashboard/summary` - returns backend-computed dashboard totals and insight copy.
 
 Expected local response from `GET /health/supabase`:
 
@@ -158,9 +166,31 @@ Expected response shape:
 
 ```json
 {
-  "displayName": "Jordan Miller",
+  "displayName": "Sam Reader",
   "timezone": "America/Toronto",
-  "avatarUrl": null
+  "avatarUrl": null,
+  "personal": {
+    "age": 29,
+    "heightCm": 178,
+    "weightKg": 78,
+    "activityLevel": "moderate"
+  },
+  "goals": {
+    "primaryGoal": "maintain",
+    "targetWeightKg": 78,
+    "calorieGoal": 2100,
+    "proteinGoal": 120,
+    "hydrationGoal": 2700,
+    "weeklyWorkouts": 4
+  },
+  "preferences": {
+    "units": "Metric",
+    "notifications": true,
+    "weeklySummary": true,
+    "assistantInsights": true,
+    "compactCards": false,
+    "monthlyBudget": 2000
+  }
 }
 ```
 
@@ -315,6 +345,19 @@ GET /entries?pluginId=workout&entryType=log_workout&from=2026-06-01T00:00:00.000
 
 Supported filters are `pluginId`, `entryType`, `from`, `to`, `limit`, and `offset`.
 
+Supported entry contracts:
+
+| Entry type | Value/unit | Required metadata | Notes |
+| --- | --- | --- | --- |
+| `log_food` | optional calories with `cal` | `food` | Optional `calories`, `protein`, `carbs`, and `fats` metadata are used by dashboard summaries. |
+| `log_calories` | numeric calories with optional `cal` | none | Adds to nutrition calories. |
+| `log_weight` | numeric weight with `kg` or `lb` | none | Used for body-weight tracking. |
+| `log_expense` | positive amount with `usd` or `cad` | `category` | Optional `note` is used in activity summaries. |
+| `log_sleep` | positive minutes with `min` | none | Optional `quality` is shown in summaries. |
+| `log_hydration` | positive amount with `ml`, `l`, or `oz` | none | Summary totals normalize to milliliters. |
+| `log_mindfulness` | positive minutes with `min` | none | Optional `title` names the session. |
+| `log_workout` | optional | `exercise` | Optional boolean `completed` distinguishes planned and completed workouts. |
+
 Response entries use camelCase fields:
 
 ```json
@@ -343,6 +386,28 @@ Response entries use camelCase fields:
 ```
 
 `POST /entries` also returns an `activity` object when timeline activity creation succeeds.
+
+Summary query:
+
+```http
+GET /entries/summary?from=2026-07-01T00:00:00.000Z&to=2026-07-31T23:59:59.999Z
+```
+
+The summary response includes the requested `window`, domain totals, `byPlugin`, and `byEntryType` rollups.
+
+## Read Models
+
+All read-model routes require a Supabase access token.
+
+```http
+GET /activities?pluginId=hydration&from=2026-07-01T00:00:00.000Z&to=2026-07-31T23:59:59.999Z&limit=20&offset=0
+GET /dashboard/summary?date=2026-07-18
+GET /integrations
+```
+
+- `GET /activities` returns backend-generated timeline rows scoped to the current user.
+- `GET /dashboard/summary` returns dashboard card totals, date windows, balance, readiness, next action, attention items, and agenda copy.
+- `GET /integrations` returns connected-app status metadata. Unavailable integrations return `available: false` and a non-connected status instead of presenting a fake connection flow.
 
 ## Early Implementation Notes
 

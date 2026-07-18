@@ -6,7 +6,8 @@ import { supabaseAdmin } from "../services/supabase.js";
 export const dashboardRouter = Router();
 
 const entrySelect = "id, plugin_id, entry_type, value, unit, metadata, occurred_at, created_at";
-const profileSelect = "goals, preferences";
+const profileSelect = "display_name, email, avatar_url, timezone, goals, preferences";
+const pluginSelect = "id, name, description, icon, is_active, created_at";
 
 const summaryQuerySchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
@@ -305,6 +306,23 @@ function buildInsights(
   };
 }
 
+function enabledPluginCards(plugins: Record<string, unknown>[], userPlugins: Record<string, unknown>[]) {
+  const enabledIds = new Set(
+    userPlugins
+      .filter((plugin) => plugin.enabled === true)
+      .map((plugin) => plugin.plugin_id),
+  );
+
+  return plugins
+    .filter((plugin) => plugin.is_active === true && enabledIds.has(plugin.id))
+    .map((plugin) => ({
+      id: plugin.id,
+      name: plugin.name,
+      description: plugin.description,
+      icon: plugin.icon,
+    }));
+}
+
 dashboardRouter.get("/summary", requireAuth, async (request, response, next) => {
   try {
     const parsed = summaryQuerySchema.safeParse(request.query);
@@ -319,7 +337,12 @@ dashboardRouter.get("/summary", requireAuth, async (request, response, next) => 
 
     const windows = dateWindow(parsed.data.date);
     const { user } = request as AuthenticatedRequest;
-    const [{ data: profile, error: profileError }, { data: entries, error: entriesError }] = await Promise.all([
+    const [
+      { data: profile, error: profileError },
+      { data: entries, error: entriesError },
+      { data: plugins, error: pluginsError },
+      { data: userPlugins, error: userPluginsError },
+    ] = await Promise.all([
       supabaseAdmin
         .from("profiles")
         .select(profileSelect)
@@ -333,12 +356,21 @@ dashboardRouter.get("/summary", requireAuth, async (request, response, next) => 
         .lte("occurred_at", windows.dayEnd.toISOString())
         .order("occurred_at", { ascending: false })
         .limit(1000),
+      supabaseAdmin
+        .from("plugins")
+        .select(pluginSelect)
+        .eq("is_active", true)
+        .order("created_at", { ascending: true }),
+      supabaseAdmin
+        .from("user_plugins")
+        .select("plugin_id, enabled")
+        .eq("user_id", user.id),
     ]);
 
-    if (profileError || entriesError) {
+    if (profileError || entriesError || pluginsError || userPluginsError) {
       response.status(500).json({
         error: "Unable to load dashboard summary",
-        message: profileError?.message ?? entriesError?.message,
+        message: profileError?.message ?? entriesError?.message ?? pluginsError?.message ?? userPluginsError?.message,
       });
       return;
     }
@@ -352,6 +384,15 @@ dashboardRouter.get("/summary", requireAuth, async (request, response, next) => 
         day: { from: windows.dayStart.toISOString(), to: windows.dayEnd.toISOString() },
         week: { from: windows.weekStart.toISOString(), to: windows.dayEnd.toISOString() },
         month: { from: windows.monthStart.toISOString(), to: windows.dayEnd.toISOString() },
+      },
+      profile: {
+        displayName: profile?.display_name ?? null,
+        email: profile?.email ?? user.email ?? null,
+        avatarUrl: profile?.avatar_url ?? null,
+        timezone: profile?.timezone ?? null,
+      },
+      plugins: {
+        enabled: enabledPluginCards(plugins ?? [], userPlugins ?? []),
       },
       summary,
       insights: buildInsights(summary, entriesForSummary, profile),

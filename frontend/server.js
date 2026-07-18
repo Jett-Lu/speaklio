@@ -35,6 +35,7 @@ function runtimeConfig() {
     API_BASE_URL: process.env.API_BASE_URL || rootEnv.API_BASE_URL || "http://localhost:3000",
     SUPABASE_URL: process.env.SUPABASE_URL || rootEnv.SUPABASE_URL || "http://127.0.0.1:54321",
     SUPABASE_PUBLISHABLE_KEY: process.env.SUPABASE_PUBLISHABLE_KEY || rootEnv.SUPABASE_PUBLISHABLE_KEY || "",
+    ENABLE_ASSISTANT_REGEX_FALLBACK: process.env.ENABLE_ASSISTANT_REGEX_FALLBACK || rootEnv.ENABLE_ASSISTANT_REGEX_FALLBACK || "false",
   };
 }
 

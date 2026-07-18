@@ -26,7 +26,7 @@ test("PATCH /me/profile persists nested profile fields", async () => {
           timezone: "America/Toronto",
           personal_data: { age: 30, heightCm: 170, weightKg: 70, activityLevel: "active" },
           goals: { primaryGoal: "maintain", targetWeightKg: 70, calorieGoal: 2100, proteinGoal: 120, hydrationGoal: 2600, weeklyWorkouts: 4 },
-          preferences: { units: "Metric", notifications: true },
+          preferences: { units: "Metric", notifications: true, monthlyBudget: 1800 },
           created_at: "2026-07-18T00:00:00.000Z",
           updated_at: "2026-07-18T01:00:00.000Z",
         },
@@ -43,7 +43,7 @@ test("PATCH /me/profile persists nested profile fields", async () => {
         timezone: "America/Toronto",
         personal: { age: 30, heightCm: 170, weightKg: 70, activityLevel: "active" },
         goals: { primaryGoal: "maintain", targetWeightKg: 70, calorieGoal: 2100, proteinGoal: 120, hydrationGoal: 2600, weeklyWorkouts: 4 },
-        preferences: { units: "Metric", notifications: true },
+        preferences: { units: "Metric", notifications: true, monthlyBudget: 1800 },
       }),
     });
 
@@ -55,7 +55,7 @@ test("PATCH /me/profile persists nested profile fields", async () => {
       timezone: "America/Toronto",
       personal_data: { age: 30, heightCm: 170, weightKg: 70, activityLevel: "active" },
       goals: { primaryGoal: "maintain", targetWeightKg: 70, calorieGoal: 2100, proteinGoal: 120, hydrationGoal: 2600, weeklyWorkouts: 4 },
-      preferences: { units: "Metric", notifications: true },
+      preferences: { units: "Metric", notifications: true, monthlyBudget: 1800 },
     });
   } finally {
     await server.close();
@@ -431,11 +431,33 @@ test("GET /activities rejects invalid filters", async () => {
   }
 });
 
+test("GET /integrations returns backend-owned connection status metadata", async () => {
+  const server = await createRouteTestServer({});
+
+  try {
+    const response = await server.request("/integrations");
+
+    assert.equal(response.status, 200);
+    const payload = await json(response);
+    const integrations = payload.integrations as Array<Record<string, unknown>>;
+    const appleHealth = integrations.find((integration) => integration.id === "apple-health");
+    assert.equal(appleHealth?.available, false);
+    assert.equal(appleHealth?.status, "coming-soon");
+    assert.equal((appleHealth?.permissions as Record<string, unknown>).read, "Steps, workouts, heart rate, sleep, active energy, mindful minutes.");
+  } finally {
+    await server.close();
+  }
+});
+
 test("GET /dashboard/summary returns backend-computed card totals", async () => {
   const server = await createRouteTestServer({
     profiles() {
       return {
         data: {
+          display_name: "Sam Reader",
+          email: "sam@example.com",
+          avatar_url: null,
+          timezone: "America/Toronto",
           goals: { calorieGoal: 2200, hydrationGoal: 2800, weeklyWorkouts: 5 },
           preferences: { monthlyBudget: 1500 },
         },
@@ -455,6 +477,21 @@ test("GET /dashboard/summary returns backend-computed card totals", async () => 
         error: null,
       };
     },
+    plugins() {
+      return {
+        data: [
+          { id: "nutrition", name: "Nutrition", description: "Meals", icon: "apple", is_active: true, created_at: "2026-07-18T00:00:00.000Z" },
+          { id: "sleep", name: "Sleep", description: "Rest", icon: "moon", is_active: true, created_at: "2026-07-18T00:00:00.000Z" },
+        ],
+        error: null,
+      };
+    },
+    user_plugins() {
+      return {
+        data: [{ plugin_id: "sleep", enabled: true }],
+        error: null,
+      };
+    },
   });
 
   try {
@@ -471,6 +508,8 @@ test("GET /dashboard/summary returns backend-computed card totals", async () => 
     assert.equal(summary.sleep.minutes, 450);
     assert.equal(summary.workout.completed, 1);
     assert.equal(summary.mindfulness.count, 1);
+    assert.equal((payload.profile as Record<string, unknown>).displayName, "Sam Reader");
+    assert.equal(((payload.plugins as Record<string, unknown>).enabled as Array<Record<string, unknown>>)[0].id, "sleep");
     const insights = payload.insights as Record<string, Record<string, unknown>>;
     assert.equal((insights.balance as Record<string, unknown>).score, 51);
     assert.equal((insights.balance as Record<string, unknown>).onTrack, 2);

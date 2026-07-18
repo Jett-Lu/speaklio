@@ -61,10 +61,10 @@
             <div class="form-grid">
               <label>Name<input required name="name" autocomplete="name" /></label>
               <label>Email<input required name="email" type="email" autocomplete="email" /></label>
-              <label>Age<input required name="age" type="number" min="13" max="120" value="29" /></label>
+              <label>Age<input required name="age" type="number" min="13" max="120" /></label>
               <label>Activity level<select name="activityLevel"><option value="light">Light</option><option value="moderate" selected>Moderate</option><option value="active">Active</option><option value="athlete">Athlete</option></select></label>
-              <label>Height (cm)<input required name="heightCm" type="number" min="100" max="240" value="178" /></label>
-              <label>Weight (kg)<input required name="weightKg" type="number" min="30" max="250" step="0.1" value="78" /></label>
+              <label>Height (cm)<input required name="heightCm" type="number" min="100" max="240" /></label>
+              <label>Weight (kg)<input required name="weightKg" type="number" min="30" max="250" step="0.1" /></label>
             </div>
             <label>Primary goal<select name="primaryGoal"><option value="maintain">Maintain weight</option><option value="lose">Lose fat</option><option value="gain">Build muscle</option><option value="performance">Improve performance</option></select></label>
             <button class="primary-button" type="submit">Create my plan</button>
@@ -134,7 +134,7 @@
             </div>
             <span>Speaklio</span>
           </div>
-          <button class="avatar avatar-button" aria-label="Open profile" data-view-trigger="profile">JM</button>
+          <button class="avatar avatar-button" aria-label="Open profile" data-view-trigger="profile">SP</button>
         </header>
 
         <section class="backend-status" id="backend-status" hidden>
@@ -504,7 +504,7 @@
             </div>
           </header>
           <section class="profile-card">
-            <div class="large-avatar">JM</div>
+            <div class="large-avatar">SP</div>
             <div>
               <h2 id="profile-name">Speaklio</h2>
               <p id="profile-email">Signed in account</p>
@@ -514,18 +514,18 @@
           <section class="profile-overview-grid" aria-label="Profile overview">
             <article class="mini-stat">
               <span>Body</span>
-              <strong id="profile-weight">78 kg</strong>
-              <small id="profile-height">178 cm tall</small>
+              <strong id="profile-weight">Not set</strong>
+              <small id="profile-height">Height not set</small>
             </article>
             <article class="mini-stat">
               <span>Primary goal</span>
-              <strong id="profile-goal">Maintain</strong>
-              <small id="profile-target-weight">Target 78 kg</small>
+              <strong id="profile-goal">Not set</strong>
+              <small id="profile-target-weight">Target not set</small>
             </article>
             <article class="mini-stat">
               <span>Daily target</span>
-              <strong id="profile-calorie-goal">2,100 cal</strong>
-              <small id="profile-protein-goal">120g protein</small>
+              <strong id="profile-calorie-goal">Not set</strong>
+              <small id="profile-protein-goal">Protein not set</small>
             </article>
           </section>
           <section class="setup-checklist">
@@ -539,18 +539,18 @@
             <div class="checklist-grid">
               <div class="checklist-item done">
                 <span></span>
-                <strong id="profile-age">29 years old</strong>
+                <strong id="profile-age">Age not set</strong>
                 <small>Used to tune calorie and recovery targets.</small>
               </div>
               <div class="checklist-item done">
                 <span></span>
-                <strong id="profile-activity-level">Moderate activity</strong>
+                <strong id="profile-activity-level">Activity not set</strong>
                 <small>Sets the starting point for daily energy needs.</small>
               </div>
               <div class="checklist-item">
                 <span></span>
-                <strong id="profile-workout-goal">4 workouts weekly</strong>
-                <small id="profile-hydration-goal">2.7 L water daily.</small>
+                <strong id="profile-workout-goal">Workout goal not set</strong>
+                <small id="profile-hydration-goal">Water goal not set.</small>
               </div>
             </div>
           </section>
@@ -561,23 +561,7 @@
                 <h2>Apps and devices</h2>
               </div>
             </div>
-            <div class="integration-grid">
-              <article class="integration-card">
-                <span class="plugin-icon workout"><span class="icon" data-icon="watch"></span></span>
-                <div>
-                  <strong>Apple Health</strong>
-                  <small>Steps, workouts, heart rate, sleep, and mindful minutes. Coming soon.</small>
-                </div>
-                <button class="store-detail-button" type="button" data-integration-action="apple-health">Coming soon</button>
-              </article>
-              <article class="integration-card">
-                <span class="plugin-icon hydration"><span class="icon" data-icon="link"></span></span>
-                <div>
-                  <strong>Apple Watch</strong>
-                  <small>Activity rings and workout recovery for richer daily tracking. Coming soon.</small>
-                </div>
-                <button class="store-detail-button" type="button" data-integration-action="apple-watch">Coming soon</button>
-              </article>
+            <div class="integration-grid" id="integration-grid">
             </div>
           </section>
           <section class="settings-list">

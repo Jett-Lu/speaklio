@@ -34,6 +34,17 @@ Started on July 18, 2026:
 - Added authenticated `GET /entries/summary?from=&to=` aggregation for totals by plugin, entry type, and supported dashboard domains.
 - Changed assistant preview editing from a placeholder toast into a real edit modal that updates the pending backend entry payload before confirmation.
 - Split frontend localStorage helpers into signed-in UI-only persistence and signed-out local prototype state.
+- Added monthly budget as a persisted profile preference and wired the frontend Preferences modal to save it through `/me/profile`.
+- Made the signed-in browser regex assistant fallback opt-in with `ENABLE_ASSISTANT_REGEX_FALLBACK`, so backend AI previews stay the default source of truth.
+- Removed remaining static account setup and profile skeleton defaults from the HTML first paint.
+- Split frontend defaults into `defaultProfileSettings()`, `emptyDashboardState()`, and local UI state helpers.
+- Added a frontend `apiClient` section for named backend calls.
+- Added a signed-in remote loading state around profile/plugin/dashboard/activity refreshes.
+- Replaced static plugin modal insight copy with current backend dashboard insights or verified current-state fallback copy.
+- Added authenticated `GET /integrations` and switched connected-app cards/details to backend-owned status metadata.
+- Expanded `GET /dashboard/summary` with profile basics and enabled plugin card metadata.
+- Removed the artificial assistant response delay and added async error handling for typed, quick-chip, and voice assistant requests.
+- Updated backend documentation for the current API surface, supported entry contracts, read models, and integration status behavior.
 
 ## Goal
 
@@ -65,6 +76,7 @@ Already available:
 - `PATCH /entries/:id`
 - `DELETE /entries/:id`
 - `GET /activities`
+- `GET /integrations`
 - `GET /dashboard/summary`
 - `POST /ai/parse-command`
 - `POST /ai/preview-entry`
@@ -95,32 +107,34 @@ The frontend is a static app in:
 
 The app still keeps most derived UI state in a large client-side `state` object from `makeDefaultState()` in `frontend/app.js`.
 
-Current persistence is mixed:
+Current persistence is now split:
 
 - Real auth session is stored in `localStorage` under `speaklio-auth-session-v1`.
-- Full dashboard state is still cached in `localStorage` under `speaklio-state-v3`.
-- Profile, plugins, and entries now partly round-trip through the backend.
-- Several UI values still come from hardcoded defaults or client-only heuristics.
+- Signed-in `speaklio-state-v3` stores local UI state only: current view, activity filter/search, and assistant chat UI.
+- Profile, goals, preferences, plugin enablement, entries, activities, integrations, and dashboard summaries load from backend APIs.
+- Signed-out mode can still keep local prototype state for unauthenticated exploration.
 
-## Hardcoded Values Audit
+## Original Hardcoded Values Audit (Resolved)
+
+The findings below are the original audit targets. Each section now includes a status note describing the current implementation.
 
 ### 1. Hardcoded Signed-Out/Auth Placeholders
 
 Location: `frontend/index.html`
 
-- Login email input defaults to `jordan@example.com`.
+- Login email input defaulted to a sample email.
 - Account setup defaults to:
-  - `Jordan Miller`
-  - `jordan@example.com`
+  - a sample full name
+  - a sample email
   - age `29`
   - activity level `moderate`
   - height `178`
   - weight `78`
 - Static sidebar/profile markup still contains:
-  - `Jordan Miller`
+  - a sample full name
   - `Free plan`
-  - `Good evening, Jordan.`
-- Static assistant HTML contains a fallback `Hi Jordan...` bubble.
+  - a sample personalized greeting
+- Static assistant HTML contained a sample personalized greeting bubble.
 
 Plan:
 
@@ -131,6 +145,8 @@ Plan:
 
 Priority: high for polish, medium for functionality.
 
+Status: completed. Static identity values now render as neutral Speaklio placeholders or empty inputs, and JavaScript fills user-facing identity from loaded profile state.
+
 ### 2. Default Dashboard State
 
 Location: `frontend/app.js`, `makeDefaultState()`
@@ -138,8 +154,8 @@ Location: `frontend/app.js`, `makeDefaultState()`
 Hardcoded prototype values:
 
 - Profile:
-  - name `Jordan Miller`
-  - email `jordan@example.com`
+  - sample name
+  - sample email
   - timezone `Toronto`
   - units `Metric`
   - notifications enabled
@@ -199,6 +215,8 @@ Plan:
 
 Priority: high.
 
+Status: completed for authenticated users. Defaults are split into `defaultProfileSettings()`, `emptyDashboardState()`, and local UI helpers; signed-in metric/profile/activity/plugin data is loaded from backend APIs instead of localStorage.
+
 ### 3. Hardcoded Plugin Catalog Fallback
 
 Location: `frontend/app.js`, top-level `plugins` array
@@ -229,6 +247,8 @@ Plan:
   - display order
 
 Priority: medium.
+
+Status: completed. Signed-in plugin catalog and enablement come from `GET /plugins`; the local catalog remains only as a signed-out/render fallback. Backend responses now include plugin UI metadata.
 
 ### 4. Client-Derived Summary Calculations
 
@@ -265,6 +285,8 @@ Plan:
 
 Priority: high for correctness.
 
+Status: completed for signed-in dashboard rendering. `GET /dashboard/summary` owns the main dashboard totals and insights, `GET /entries/summary` provides windowed rollups, and monthly budget is persisted as a profile preference. Client calculations remain as signed-out/backend-unavailable fallbacks only.
+
 ### 5. Entry Type Mismatch And Loose Metadata
 
 Frontend currently writes entry types:
@@ -276,14 +298,14 @@ Frontend currently writes entry types:
 - `log_hydration`
 - `log_mindfulness`
 
-Backend currently validates only these special cases:
+Original backend validation covered only these special cases:
 
 - `log_weight`
 - `log_calories`
 - `log_workout`
 - `log_food`
 
-Backend accepts other entry types but does not deeply validate them.
+The backend now deeply validates the frontend-supported entry contracts listed in the completion status below.
 
 Current mismatch examples:
 
@@ -311,22 +333,24 @@ Plan:
 
 Priority: high.
 
+Status: completed. Entry validation, activity summaries, AI mapping, and tests now cover the current frontend-written entry types. Current decision: planned and completed workouts remain `log_workout` entries distinguished by `metadata.completed`.
+
 ### 6. Activities And Timeline
 
 Location: `frontend/app.js`
 
-Current hardcoded/fake pieces:
+Original hardcoded/fake pieces:
 
 - `state.activities` starts with fake activity.
 - `addActivity()` creates local-only activity objects.
 - `renderActivity()` groups by browser-generated `day` strings.
 - `clear-activity-button` clears only local state, not backend data.
-- There is no frontend call to a backend `GET /activities` endpoint.
+- There was no frontend call to a backend `GET /activities` endpoint.
 
-Backend reality:
+Original backend reality:
 
 - Activities are generated on `POST /entries`.
-- There is no dedicated activity list route yet.
+- There was no dedicated activity list route yet.
 - Frontend currently maps entries into activity-shaped objects itself.
 
 Plan:
@@ -342,16 +366,18 @@ Plan:
 
 Priority: medium-high.
 
+Status: completed. Signed-in activity renders from `GET /activities`. Local `addActivity()` remains for signed-out mode and explicit development fallback flows only.
+
 ### 7. Assistant Flow Is Still Mostly Client-Mocked
 
 Location: `frontend/app.js`, `previewAssistantRequest()` and `processRequest()`
 
-Current hardcoded behavior:
+Original hardcoded behavior:
 
 - Regex-based command parsing in browser.
 - Client guesses categories, calories, macros, sleep quality, workout plans.
 - `setTimeout()` simulates assistant delay.
-- Assistant preview confirm/edit buttons only show toast messages.
+- Assistant preview confirm/edit buttons only showed toast messages.
 - Microphone fallback injects `"I had eggs and toast for breakfast"`.
 
 Backend reality:
@@ -375,6 +401,8 @@ Plan:
 - Store assistant conversation history in backend only if conversation persistence becomes a product requirement.
 
 Priority: high.
+
+Status: completed. Signed-in assistant requests use backend preview/confirm, edit updates the pending backend payload, microphone no longer injects fake entries, and browser regex parsing is opt-in with `ENABLE_ASSISTANT_REGEX_FALLBACK`.
 
 ### 8. Plugin Modals Have Hardcoded Form Defaults And Insights
 
@@ -420,13 +448,15 @@ Plan:
 
 Priority: medium.
 
+Status: completed for the current prototype. Categories, presets, capabilities, display order, scanner status, and integration status now come from backend-owned metadata with signed-out fallbacks. Plugin insight copy uses backend dashboard insight data or current-state fallback copy.
+
 ### 9. Profile And Goal Persistence Is Partially Integrated
 
 Current status:
 
 - Name, personal data, goals, and preferences now save through `/me/profile`.
 - Email field in profile modal does not change Supabase Auth email.
-- Defaults still appear in HTML before JavaScript renders.
+- Defaults no longer appear as user-specific HTML before JavaScript renders.
 
 Plan:
 
@@ -438,6 +468,8 @@ Plan:
 - Add tests for `PATCH /me/profile` with JSON profile fields.
 
 Priority: medium.
+
+Status: completed for the current auth flow. Profile fields and goals persist through `/me/profile`, email is read-only until an auth email-change flow exists, profile loading has a visible remote loading state, and route tests cover nested JSON profile fields.
 
 ### 10. LocalStorage Is Still Doing Too Much
 
@@ -472,9 +504,13 @@ Plan:
 
 Priority: high.
 
+Status: completed for signed-in users. `speaklio-state-v3` stores local UI state only while backend-owned data is refreshed through `loadRemoteAppState()`.
+
 ## Backend Gaps To Close
 
 ### Dashboard Summary API
+
+Status: completed.
 
 Add:
 
@@ -504,6 +540,8 @@ Reason:
 
 ### Activities API
 
+Status: completed for listing. Deletion/archive remains intentionally unsupported until entry deletion/archive product rules exist.
+
 Add:
 
 ```http
@@ -523,6 +561,8 @@ Reason:
 
 ### Plugin Metadata API
 
+Status: completed for current metadata. Static backend metadata is returned with plugin list/enable responses; database-backed plugin metadata can replace the static registry later without changing the frontend contract.
+
 Extend `GET /plugins` or add plugin metadata columns for:
 
 - display order
@@ -538,6 +578,8 @@ Reason:
 
 ### Entry Contracts
 
+Status: completed. Current decision: keep `log_workout` with `metadata.completed` for planned versus completed workouts in this prototype.
+
 Add backend validation and summary support for all frontend entry types:
 
 - `log_expense`
@@ -552,6 +594,8 @@ Reason:
 - Generic `metadata` is flexible, but each supported UI flow needs predictable contracts.
 
 ### AI Confirmation Integration
+
+Status: completed.
 
 Wire frontend assistant to:
 
@@ -569,6 +613,8 @@ Reason:
 
 ### Phase 1: Stabilize Data Boundaries
 
+Status: completed.
+
 - Create a frontend `apiClient` module or section with typed request helpers.
 - Split `state` into:
   - remote app state
@@ -584,11 +630,13 @@ Reason:
 
 Acceptance criteria:
 
-- Refresh after sign-in never shows Jordan/demo values for user identity.
+- Refresh after sign-in never shows demo values for user identity.
 - Empty accounts show empty states, not fake activity.
 - Backend outage shows a visible error state rather than silently restoring fake data.
 
 ### Phase 2: Complete Entry Contracts
+
+Status: completed.
 
 - Define supported entry types in backend docs and code.
 - Add backend validation for all frontend-written entry types.
@@ -604,6 +652,8 @@ Acceptance criteria:
 
 ### Phase 3: Add Real Summary Endpoints
 
+Status: completed.
+
 - Add `GET /dashboard/summary`.
 - Add `GET /activities`.
 - Move date window logic and summary totals to backend services.
@@ -618,6 +668,8 @@ Acceptance criteria:
 
 ### Phase 4: Replace Mock Assistant Flow
 
+Status: completed.
+
 - Replace `processRequest()` regex logic with backend AI preview.
 - Render proposed entries from `/ai/preview-entry`.
 - Confirm through `/ai/confirm-actions`.
@@ -631,6 +683,8 @@ Acceptance criteria:
 - Edit button changes the proposed backend payload before saving.
 
 ### Phase 5: Plugin Configuration And Integrations
+
+Status: completed for current prototype scope.
 
 - Decide which plugin metadata lives in database versus frontend registry.
 - Move categories, presets, and plugin capabilities out of inline modal strings.
@@ -672,22 +726,15 @@ Database:
   - `npm run supabase:db:reset`
 - Verify linked remote migration behavior separately before production push.
 
-## Open Questions
+## Implementation Decisions
 
-- Should finance budget be a profile goal, plugin setting, or dedicated finance settings row?
-- Should workout planning and workout completion be separate entry types?
-- Should activity be editable/deletable, or always derived from entries?
-- Should assistant chats persist, or should only confirmed entries persist?
-- Which plugin metadata belongs in Supabase versus frontend code?
-- Do we want Supabase JS client in the frontend, or keep direct REST calls for this static prototype?
+- Finance budget is stored as `profiles.preferences.monthlyBudget` for this prototype.
+- Workout planning and completion both use `log_workout`; `metadata.completed` distinguishes completed sessions from planned sessions.
+- Activity rows are backend-generated from entries. Signed-in timeline clearing is disabled until backend archive/delete product rules exist.
+- Assistant chats remain local UI state; confirmed entries are the persisted source of truth.
+- Plugin and integration metadata are backend-owned API response metadata with frontend fallback registries for signed-out mode.
+- The static frontend keeps direct REST calls through `apiClient`; adopting Supabase JS can be revisited if session refresh or realtime subscriptions become priorities.
 
-## Recommended Next Step
+## Completion Status
 
-Start with Phase 1 and Phase 2 together:
-
-1. Remove demo data from authenticated state.
-2. Add real empty states.
-3. Formalize entry contracts for every current frontend logging flow.
-4. Update backend activity summaries for all supported frontend entry types.
-
-This gives the team a more honest app quickly: it may have fewer fake insights, but every visible saved value will have a real source of truth.
+The implementation phases in this plan are complete for the current static frontend and Express backend prototype. Remaining future work is product expansion beyond this audit, such as real native Apple Health/Watch integration, activity archive/delete semantics, persistent assistant conversation history, and database-backed plugin metadata administration.
