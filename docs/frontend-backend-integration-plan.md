@@ -21,6 +21,9 @@ Started on July 18, 2026:
 - Removed the fake microphone fallback that logged a hardcoded meal when browser voice input was unavailable.
 - Expanded local AI action contracts and backend preview mapping for expenses, sleep, hydration, and mindfulness.
 - Shared entry validation between normal entry creation and AI confirmation so assistant-created entries follow the same contracts.
+- Moved plugin modal categories, quality options, and quick presets into a frontend plugin UI registry.
+- Marked Apple Health, Apple Watch, and meal scanning as coming soon instead of presenting fake connection or scan-save flows.
+- Removed hardcoded submitted meal macro defaults from the nutrition form; remaining values are placeholders only.
 
 ## Goal
 

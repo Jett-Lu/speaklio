@@ -44,6 +44,46 @@ let plugins = [
   { id: "mindfulness", name: "Mindfulness", icon: "heart", description: "Make space for calm moments in your day." },
 ];
 
+const pluginUiConfig = {
+  finance: {
+    categories: ["Dining", "Groceries", "Transport", "Bills", "Other"],
+  },
+  sleep: {
+    qualityOptions: ["Great", "Good", "Fair", "Poor"],
+  },
+  hydration: {
+    presetsMl: [250, 500, 750],
+  },
+  mindfulness: {
+    presetsMinutes: [5, 10, 15],
+  },
+};
+
+const integrationCatalog = {
+  "apple-health": {
+    name: "Apple Health",
+    icon: "watch",
+    color: "workout",
+    panelCopy: "Steps, workouts, heart rate, sleep, and mindful minutes.",
+    detailCopy: "Apple Health sync is not connected yet. Speaklio needs a native app or HealthKit bridge before these permissions can be requested.",
+    permissions: {
+      read: "Steps, workouts, heart rate, sleep, active energy, mindful minutes.",
+      write: "Nutrition summaries, water, workouts, and mindful moments when enabled.",
+    },
+  },
+  "apple-watch": {
+    name: "Apple Watch",
+    icon: "link",
+    color: "hydration",
+    panelCopy: "Activity rings and workout recovery through Apple Health.",
+    detailCopy: "Apple Watch data will flow through Apple Health once native HealthKit sync exists.",
+    permissions: {
+      read: "Activity rings, workouts, heart rate, sleep, recovery signals.",
+      write: "No direct Watch writes planned for this prototype.",
+    },
+  },
+};
+
 let pluginMap = Object.fromEntries(plugins.map((plugin) => [plugin.id, plugin]));
 
 function firstName(name) {
@@ -221,6 +261,32 @@ function formatActivityLabel(activityLevel) {
 
 function optionMarkup(value, label, selectedValue) {
   return `<option value="${escapeHtml(value)}" ${value === selectedValue ? "selected" : ""}>${escapeHtml(label)}</option>`;
+}
+
+function optionsMarkup(values, selectedValue) {
+  return values.map((value) => optionMarkup(value, value, selectedValue)).join("");
+}
+
+function presetButtons(values, action, formatter) {
+  return values
+    .map((value) => `<button class="preset-button" data-modal-action="${escapeHtml(action)}" data-amount="${value}">${escapeHtml(formatter(value))}</button>`)
+    .join("");
+}
+
+function integrationCardMarkup(integrationId) {
+  const integration = integrationCatalog[integrationId];
+  if (!integration) return "";
+
+  return `
+    <article class="integration-card">
+      <span class="plugin-icon ${escapeHtml(integration.color)}">${iconMarkup(integration.icon)}</span>
+      <div>
+        <strong>${escapeHtml(integration.name)}</strong>
+        <small>${escapeHtml(integration.panelCopy)}</small>
+      </div>
+      <button class="store-detail-button" type="button" data-integration-action="${escapeHtml(integrationId)}">Coming soon</button>
+    </article>
+  `;
 }
 
 function getTailoredGoals({ weightKg, primaryGoal, activityLevel }) {
@@ -1187,11 +1253,11 @@ function nutritionScanPanel() {
     <div class="scan-panel">
       <div>
         <p class="eyebrow">COMPUTER VISION</p>
-        <h3>Scan a meal or nutrition label</h3>
-        <p>Use camera capture to identify foods, estimate portions, and review calories before saving.</p>
+        <h3>Meal scanner coming soon</h3>
+        <p>Camera capture will need a real vision service before it can estimate foods and portions.</p>
       </div>
       <button class="wide-action-button" type="button" data-modal-action="open-nutrition-scan">
-        ${iconMarkup("camera")} Open scanner
+        ${iconMarkup("camera")} Review status
       </button>
     </div>
   `;
@@ -1200,7 +1266,7 @@ function nutritionScanPanel() {
 function openNutritionScan() {
   openModal({
     eyebrow: "NUTRITION SCAN",
-    title: "Meal scanner",
+    title: "Meal scanner coming soon",
     body: `
       <div class="scan-modal-grid">
         <section class="camera-frame" aria-label="Camera scanner preview">
@@ -1209,29 +1275,23 @@ function openNutritionScan() {
           <span class="scan-corner bottom-left"></span>
           <span class="scan-corner bottom-right"></span>
           ${iconMarkup("camera")}
-          <strong>Camera ready</strong>
-          <p>Frame the plate or nutrition label, then review the estimate before saving.</p>
+          <strong>Vision service not connected</strong>
+          <p>Speaklio needs a real camera and food-recognition service before meal scanning can save entries.</p>
         </section>
         <section class="scan-review">
-          <p class="eyebrow">DETECTED ITEMS</p>
+          <p class="eyebrow">PLANNED FLOW</p>
           <div class="scan-mode-row">
             <button class="preset-button active" type="button">Meal photo</button>
             <button class="preset-button" type="button">Nutrition label</button>
             <button class="preset-button" type="button">Barcode</button>
           </div>
-          <div class="detected-list">
-            <div><strong>Chicken rice bowl</strong><span>High confidence</span></div>
-            <div><strong>Avocado dressing</strong><span>Medium confidence</span></div>
-          </div>
-          <div class="scan-estimate-grid">
-            ${stat("Calories", "610")}
-            ${stat("Protein", "38g")}
-            ${stat("Carbs", "72g")}
-            ${stat("Fats", "18g")}
+          <div class="permission-list">
+            <div><strong>Capture</strong><span>Open camera or upload a meal photo.</span></div>
+            <div><strong>Review</strong><span>Confirm foods, portions, calories, and macros.</span></div>
+            <div><strong>Save</strong><span>Create the same backend nutrition entry as manual logging.</span></div>
           </div>
           <div class="stacked-actions">
-            <button class="primary-button" type="button" data-modal-action="save-scan-estimate">Save estimate</button>
-            <button class="secondary-button" type="button" data-modal-action="capture-meal-frame">Capture again</button>
+            <button class="primary-button" type="button" data-modal-action="close">Done</button>
           </div>
         </section>
       </div>
@@ -1239,31 +1299,19 @@ function openNutritionScan() {
   });
 }
 
-function saveScannedMealEstimate() {
-  state.nutrition.calories += 610;
-  state.nutrition.protein += 38;
-  state.nutrition.carbs += 72;
-  state.nutrition.fats += 18;
-  addActivity({ plugin: "nutrition", title: "Saved meal scan estimate", detail: "Chicken rice bowl - 610 cal" });
-  saveState();
-  renderAll();
-  closeModal();
-  showToast("Meal estimate saved to Nutrition");
-}
-
 function openIntegration(integrationId) {
-  const isWatch = integrationId === "apple-watch";
+  const integration = integrationCatalog[integrationId];
+  if (!integration) return;
+
   openModal({
     eyebrow: "CONNECTED HEALTH",
-    title: isWatch ? "Apple Watch" : "Apple Health",
+    title: integration.name,
     body: `
       <div class="integration-detail">
-        <span class="plugin-icon workout">${iconMarkup(isWatch ? "watch" : "link")}</span>
+        <span class="plugin-icon ${escapeHtml(integration.color)}">${iconMarkup(integration.icon)}</span>
         <div>
-          <h3>${isWatch ? "Connect Apple Watch data through Apple Health" : "Connect Apple Health"}</h3>
-          <p>${isWatch
-            ? "Speaklio uses Apple Health permissions to bring Watch activity, workout, heart-rate, and recovery signals into your dashboard."
-            : "Choose exactly which health categories Speaklio can read and write, then use those signals to improve daily tracking."}</p>
+          <h3>${escapeHtml(integration.name)} sync is coming soon</h3>
+          <p>${escapeHtml(integration.detailCopy)}</p>
         </div>
       </div>
       <div class="permission-grid">
@@ -1272,12 +1320,11 @@ function openIntegration(integrationId) {
         ${stat("Recovery", "Sleep, heart")}
       </div>
       <div class="permission-list">
-        <div><strong>Read permissions</strong><span>Steps, workouts, heart rate, sleep, active energy, mindful minutes.</span></div>
-        <div><strong>Write permissions</strong><span>Nutrition summaries, water, workouts, and mindful moments when enabled.</span></div>
+        <div><strong>Planned read permissions</strong><span>${escapeHtml(integration.permissions.read)}</span></div>
+        <div><strong>Planned write permissions</strong><span>${escapeHtml(integration.permissions.write)}</span></div>
       </div>
       <div class="stacked-actions">
-        <button class="primary-button" type="button" data-modal-action="connect-health">Connect ${isWatch ? "Apple Watch" : "Apple Health"}</button>
-        <button class="secondary-button" type="button" data-modal-action="close">Not now</button>
+        <button class="primary-button" type="button" data-modal-action="close">Done</button>
       </div>
     `,
   });
@@ -1334,10 +1381,10 @@ function openPlugin(pluginId) {
         <h3>Log a meal</h3>
         <label>Meal description<input required name="description" placeholder="Eggs and toast" /></label>
         <div class="form-grid">
-          <label>Calories<input required name="calories" type="number" min="1" value="320" /></label>
-          <label>Protein (g)<input name="protein" type="number" min="0" value="18" /></label>
-          <label>Carbs (g)<input name="carbs" type="number" min="0" value="32" /></label>
-          <label>Fats (g)<input name="fats" type="number" min="0" value="12" /></label>
+          <label>Calories<input required name="calories" type="number" min="1" placeholder="320" /></label>
+          <label>Protein (g)<input name="protein" type="number" min="0" placeholder="18" /></label>
+          <label>Carbs (g)<input name="carbs" type="number" min="0" placeholder="32" /></label>
+          <label>Fats (g)<input name="fats" type="number" min="0" placeholder="12" /></label>
         </div>
         <button class="primary-button" type="submit">Add meal</button>
       </form>${footer}`,
@@ -1352,7 +1399,7 @@ function openPlugin(pluginId) {
         <h3>Log an expense</h3>
         <div class="form-grid">
           <label>Amount<input required name="amount" type="number" min="0.01" step="0.01" placeholder="25.00" /></label>
-          <label>Category<select name="category"><option>Dining</option><option>Groceries</option><option>Transport</option><option>Bills</option><option>Other</option></select></label>
+          <label>Category<select name="category">${optionsMarkup(pluginUiConfig.finance.categories)}</select></label>
         </div>
         <label>Note<input name="note" placeholder="Lunch" /></label>
         <button class="primary-button" type="submit">Add expense</button>
@@ -1368,7 +1415,7 @@ function openPlugin(pluginId) {
         <h3>Log last night's sleep</h3>
         <div class="form-grid">
           <label>Hours slept<input required name="hours" type="number" min="0" max="16" step="0.1" value="${(state.sleep.minutes / 60).toFixed(1)}" /></label>
-          <label>Quality<select name="quality"><option>Great</option><option ${state.sleep.quality === "Good" ? "selected" : ""}>Good</option><option>Fair</option><option>Poor</option></select></label>
+          <label>Quality<select name="quality">${optionsMarkup(pluginUiConfig.sleep.qualityOptions, state.sleep.quality)}</select></label>
         </div>
         <button class="primary-button" type="submit">Save sleep</button>
       </form>${footer}`,
@@ -1399,9 +1446,7 @@ function openPlugin(pluginId) {
       <div class="quick-form">
         <h3>Add water</h3>
         <div class="preset-row">
-          <button class="preset-button" data-modal-action="add-water" data-amount="250">+ 250 ml</button>
-          <button class="preset-button" data-modal-action="add-water" data-amount="500">+ 500 ml</button>
-          <button class="preset-button" data-modal-action="add-water" data-amount="750">+ 750 ml</button>
+          ${presetButtons(pluginUiConfig.hydration.presetsMl, "add-water", (value) => `+ ${value} ml`)}
         </div>
       </div>${footer}`,
     mindfulness: `
@@ -1415,9 +1460,7 @@ function openPlugin(pluginId) {
         <h3>Complete a mindful moment</h3>
         <p>Choose a short breathing session. Speaklio will log it as completed.</p>
         <div class="preset-row">
-          <button class="preset-button" data-modal-action="complete-mindfulness" data-amount="5">5 min</button>
-          <button class="preset-button" data-modal-action="complete-mindfulness" data-amount="10">10 min</button>
-          <button class="preset-button" data-modal-action="complete-mindfulness" data-amount="15">15 min</button>
+          ${presetButtons(pluginUiConfig.mindfulness.presetsMinutes, "complete-mindfulness", (value) => `${value} min`)}
         </div>
       </div>${footer}`,
   };
@@ -1668,22 +1711,8 @@ function openProfileAction(action) {
       title: "Apps and devices",
       body: `
         <div class="integration-grid modal-integration-grid">
-          <article class="integration-card">
-            <span class="plugin-icon workout">${iconMarkup("watch")}</span>
-            <div>
-              <strong>Apple Health</strong>
-              <small>Steps, workouts, heart rate, sleep, and mindful minutes.</small>
-            </div>
-            <button class="store-detail-button" type="button" data-integration-action="apple-health">Connect</button>
-          </article>
-          <article class="integration-card">
-            <span class="plugin-icon hydration">${iconMarkup("link")}</span>
-            <div>
-              <strong>Apple Watch</strong>
-              <small>Activity rings and recovery trends through Apple Health.</small>
-            </div>
-            <button class="store-detail-button" type="button" data-integration-action="apple-watch">Review</button>
-          </article>
+          ${integrationCardMarkup("apple-health")}
+          ${integrationCardMarkup("apple-watch")}
         </div>
       `,
     });
@@ -1741,11 +1770,12 @@ function ensureInstalled(pluginId) {
 }
 
 function classifyExpense(text) {
-  if (/(grocery|groceries|supermarket)/.test(text)) return "Groceries";
-  if (/(gas|uber|taxi|bus|transport)/.test(text)) return "Transport";
-  if (/(bill|rent|phone|internet)/.test(text)) return "Bills";
-  if (/(lunch|dinner|coffee|restaurant|breakfast)/.test(text)) return "Dining";
-  return "Other";
+  const categories = pluginUiConfig.finance.categories;
+  if (/(grocery|groceries|supermarket)/.test(text)) return categories.includes("Groceries") ? "Groceries" : categories[0];
+  if (/(gas|uber|taxi|bus|transport)/.test(text)) return categories.includes("Transport") ? "Transport" : categories[0];
+  if (/(bill|rent|phone|internet)/.test(text)) return categories.includes("Bills") ? "Bills" : categories[0];
+  if (/(lunch|dinner|coffee|restaurant|breakfast)/.test(text)) return categories.includes("Dining") ? "Dining" : categories[0];
+  return categories.includes("Other") ? "Other" : categories[0];
 }
 
 function processRequest(rawText) {
@@ -1983,9 +2013,6 @@ document.addEventListener("click", async (event) => {
     openPlugin("workout");
   }
   if (action === "open-nutrition-scan") openNutritionScan();
-  if (action === "capture-meal-frame") showToast("Meal scan captured");
-  if (action === "save-scan-estimate") saveScannedMealEstimate();
-  if (action === "connect-health") showToast("Health connection flow opened");
   if (action === "open-store") {
     closeModal();
     openView("plugins");
