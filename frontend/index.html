@@ -164,16 +164,16 @@
               <span class="status-dot"></span>
               <div>
                 <p>YOUR DAILY BALANCE</p>
-                <h2 id="balance-title">You are doing well today</h2>
-                <span id="balance-copy">3 of 4 daily goals are on track.</span>
+                <h2 id="balance-title">Loading your day</h2>
+                <span id="balance-copy">Your real progress appears after Speaklio refreshes.</span>
               </div>
             </div>
-            <div class="score-ring" id="balance-ring-wrap" aria-label="Daily balance score 82">
+            <div class="score-ring" id="balance-ring-wrap" aria-label="Daily balance score 0">
               <svg viewBox="0 0 80 80" aria-hidden="true">
                 <circle cx="40" cy="40" r="32" pathLength="100"></circle>
                 <circle class="progress" id="balance-ring" cx="40" cy="40" r="32" pathLength="100"></circle>
               </svg>
-              <strong id="balance-score">82</strong>
+              <strong id="balance-score">0</strong>
             </div>
           </section>
 
@@ -182,8 +182,8 @@
               <span class="plugin-icon workout"><span class="icon" data-icon="bolt"></span></span>
               <div>
                 <p class="eyebrow">NEXT BEST ACTION</p>
-                <h2 id="next-action-title">Plan protein before dinner</h2>
-                <span id="next-action-copy">You are close on calories, but protein is pacing behind the day.</span>
+                <h2 id="next-action-title">Loading next action</h2>
+                <span id="next-action-copy">Speaklio will suggest one after your dashboard refreshes.</span>
               </div>
               <button class="round-action" aria-label="Open nutrition details" data-plugin-open="nutrition">
                 <span class="icon" data-icon="arrow-right"></span>
@@ -191,13 +191,13 @@
             </article>
             <article class="insight-card">
               <p class="eyebrow">READINESS</p>
-              <strong id="readiness-score">Good</strong>
-              <span>Sleep and workouts are supporting today.</span>
+              <strong id="readiness-score">Not logged</strong>
+              <span>Sleep and workout readiness appears after you log data.</span>
             </article>
             <article class="insight-card">
               <p class="eyebrow">STREAK</p>
-              <strong id="streak-count">5 days</strong>
-              <span>At least one check-in every day this week.</span>
+              <strong id="streak-count">0 days</strong>
+              <span>Your streak appears after your first check-in.</span>
             </article>
           </section>
 
@@ -218,21 +218,21 @@
               </div>
               <div class="metric-primary">
                 <div>
-                  <strong id="calorie-count">1,420</strong>
-                  <span>of 2,100 cal</span>
+                  <strong id="calorie-count">0</strong>
+                  <span id="nutrition-goal-copy">of 0 cal</span>
                 </div>
-                <div class="mini-ring nutrition-ring" aria-label="68 percent of calorie goal">
+                <div class="mini-ring nutrition-ring" id="nutrition-ring-wrap" aria-label="0 percent of calorie goal">
                   <svg viewBox="0 0 54 54" aria-hidden="true">
                     <circle cx="27" cy="27" r="21" pathLength="100"></circle>
                     <circle class="progress" id="nutrition-ring" cx="27" cy="27" r="21" pathLength="100"></circle>
                   </svg>
-                  <span id="nutrition-percent">68%</span>
+                  <span id="nutrition-percent">0%</span>
                 </div>
               </div>
               <div class="macro-row">
-                <span><b id="protein-count">72g</b> protein</span>
-                <span><b id="carbs-count">164g</b> carbs</span>
-                <span><b id="fats-count">54g</b> fats</span>
+                <span><b id="protein-count">0g</b> protein</span>
+                <span><b id="carbs-count">0g</b> carbs</span>
+                <span><b id="fats-count">0g</b> fats</span>
               </div>
               <button class="scan-meal-button" type="button" data-plugin-action="nutrition-scan">
                 <span class="icon" data-icon="camera"></span>
@@ -248,17 +248,17 @@
               </div>
               <div class="metric-primary">
                 <div>
-                  <strong id="spending-count">$1,264</strong>
+                  <strong id="spending-count">$0</strong>
                   <span>spent this month</span>
                 </div>
-                <span class="trend positive" id="finance-trend">12% under</span>
+                <span class="trend positive" id="finance-trend">0% left</span>
               </div>
               <div class="progress-bar">
                 <span id="finance-progress"></span>
               </div>
               <div class="card-footer">
                 <span>Monthly budget</span>
-                <strong id="budget-left">$736 left</strong>
+                <strong id="budget-left">$0 left</strong>
               </div>
             </article>
 
@@ -270,19 +270,19 @@
               </div>
               <div class="metric-primary">
                 <div>
-                  <strong id="sleep-count">7h 42m</strong>
+                  <strong id="sleep-count">0h 0m</strong>
                   <span>last night</span>
                 </div>
-                <span class="quality-badge" id="sleep-quality">Good</span>
+                <span class="quality-badge" id="sleep-quality">Not logged</span>
               </div>
               <div class="sleep-bars" aria-label="Weekly sleep chart">
-                <span style="height: 54%"></span>
-                <span style="height: 68%"></span>
-                <span style="height: 80%"></span>
-                <span style="height: 61%"></span>
-                <span style="height: 74%"></span>
-                <span style="height: 85%"></span>
-                <span class="today" style="height: 77%"></span>
+                <span></span>
+                <span></span>
+                <span></span>
+                <span></span>
+                <span></span>
+                <span></span>
+                <span class="today"></span>
               </div>
               <div class="days-row">
                 <span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span><span>S</span>
@@ -306,7 +306,7 @@
               </div>
               <div class="card-footer">
                 <span>Weekly goal</span>
-                <strong id="workout-goal">3 of 4 sessions</strong>
+                <strong id="workout-goal">0 of 0 sessions</strong>
               </div>
             </article>
 
@@ -318,17 +318,17 @@
               </div>
               <div class="metric-primary">
                 <div>
-                  <strong id="hydration-count">1.4 L</strong>
-                  <span id="hydration-goal-copy">of 2.5 L today</span>
+                  <strong id="hydration-count">0.0 L</strong>
+                  <span id="hydration-goal-copy">of 0.0 L today</span>
                 </div>
-                <span class="trend hydration-trend" id="hydration-percent">56%</span>
+                <span class="trend hydration-trend" id="hydration-percent">0%</span>
               </div>
               <div class="progress-bar hydration-progress">
                 <span id="hydration-progress"></span>
               </div>
               <div class="card-footer">
                 <span>Daily goal</span>
-                <strong id="hydration-left">1.1 L left</strong>
+                <strong id="hydration-left">0.0 L left</strong>
               </div>
             </article>
 
@@ -340,7 +340,7 @@
               </div>
               <div class="workout-next">
                 <div>
-                  <strong id="mindfulness-title">Evening reset</strong>
+                  <strong id="mindfulness-title">Mindful moment</strong>
                   <span id="mindfulness-time">10-minute guided breathing</span>
                 </div>
                 <button class="round-action mindfulness-action" aria-label="Start mindfulness session" data-plugin-action="mindfulness-start">
@@ -349,7 +349,7 @@
               </div>
               <div class="card-footer">
                 <span>This week</span>
-                <strong id="mindfulness-count">3 mindful moments</strong>
+                <strong id="mindfulness-count">0 mindful moments</strong>
               </div>
             </article>
           </section>
@@ -362,22 +362,8 @@
                   <h2>Today at a glance</h2>
                 </div>
               </div>
-              <div class="agenda-list">
-                <div class="agenda-item active">
-                  <span>8:15 AM</span>
-                  <strong>Breakfast logged</strong>
-                  <small>Nutrition is updated</small>
-                </div>
-                <div class="agenda-item">
-                  <span>12:30 PM</span>
-                  <strong>Lunch window</strong>
-                  <small>Suggested: protein-forward meal</small>
-                </div>
-                <div class="agenda-item">
-                  <span>7:30 PM</span>
-                  <strong id="agenda-workout-title">No workout planned</strong>
-                  <small id="agenda-workout-meta">45 minute workout</small>
-                </div>
+              <div class="agenda-list" id="agenda-list">
+                <p class="empty-state">Your agenda appears after your dashboard refreshes.</p>
               </div>
             </article>
             <article class="panel-section">
@@ -483,7 +469,7 @@
           <section class="plugin-showcase" aria-label="Plugin setup status">
             <article>
               <p class="eyebrow">SETUP</p>
-              <strong id="plugin-installed-count">4 of 6 active</strong>
+              <strong id="plugin-installed-count">0 of 0 active</strong>
               <span>Your dashboard is tuned for everyday tracking.</span>
             </article>
             <article>
@@ -640,10 +626,10 @@
         <div class="suggestion-area">
           <p>TRY SAYING</p>
           <div class="suggestion-list">
-            <button class="suggestion-chip">I spent $25 on lunch</button>
+            <button class="suggestion-chip">Log an expense</button>
             <button class="suggestion-chip">How did I sleep last night?</button>
-            <button class="suggestion-chip">Plan a workout for tomorrow</button>
-            <button class="suggestion-chip">I drank 500 ml of water</button>
+            <button class="suggestion-chip">Plan a workout</button>
+            <button class="suggestion-chip">Add water</button>
           </div>
         </div>
         <form class="assistant-composer" id="assistant-form">

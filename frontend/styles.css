@@ -556,7 +556,7 @@ body.remote-loading .profile-overview-grid {
 
 .score-ring .progress {
   stroke: #b5e3cf;
-  stroke-dasharray: 82 100;
+  stroke-dasharray: 0 100;
   stroke-linecap: round;
 }
 
@@ -892,7 +892,7 @@ body.remote-loading .profile-overview-grid {
 
 .progress-bar span {
   display: block;
-  width: 63%;
+  width: 0;
   height: 100%;
   border-radius: inherit;
   background: var(--green);

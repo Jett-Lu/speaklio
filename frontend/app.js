@@ -113,6 +113,7 @@ function defaultProfileSettings() {
     weeklySummary: true,
     assistantInsights: true,
     compactCards: false,
+    planPersonalized: false,
     monthlyBudget: 2000,
     personal: {
       age: 29,
@@ -262,6 +263,12 @@ function escapeHtml(value) {
 
 function clamp(value, minimum = 0, maximum = 100) {
   return Math.min(maximum, Math.max(minimum, value));
+}
+
+function percentOf(value, total) {
+  const denominator = Number(total);
+  if (!Number.isFinite(denominator) || denominator <= 0) return 0;
+  return clamp((Number(value) || 0) / denominator * 100);
 }
 
 function formatMoney(value) {
@@ -726,21 +733,24 @@ function applyDashboardSummary(payload) {
 
 function applyRemoteProfile(payload) {
   const displayName = payload.profile?.display_name || payload.user?.email?.split("@")[0] || state.profile.name;
+  const remotePersonal = payload.profile?.personal_data && typeof payload.profile.personal_data === "object" ? payload.profile.personal_data : {};
+  const remoteGoals = payload.profile?.goals && typeof payload.profile.goals === "object" ? payload.profile.goals : {};
   state.profile.name = displayName;
   state.profile.email = payload.user?.email || payload.profile?.email || state.profile.email;
   state.profile.timezone = payload.profile?.timezone || state.profile.timezone;
   state.profile.personal = {
     ...state.profile.personal,
-    ...(payload.profile?.personal_data && typeof payload.profile.personal_data === "object" ? payload.profile.personal_data : {}),
+    ...remotePersonal,
   };
   state.profile.goals = {
     ...state.profile.goals,
-    ...(payload.profile?.goals && typeof payload.profile.goals === "object" ? payload.profile.goals : {}),
+    ...remoteGoals,
   };
   state.profile = {
     ...state.profile,
     ...(payload.profile?.preferences && typeof payload.profile.preferences === "object" ? payload.profile.preferences : {}),
   };
+  state.profile.planPersonalized = state.profile.planPersonalized || Object.keys(remotePersonal).length > 0 || Object.keys(remoteGoals).length > 0;
   state.profile.monthlyBudget = Number(state.profile.monthlyBudget || state.finance.budget || 2000);
   state.finance.budget = state.profile.monthlyBudget;
   syncStarterChatGreeting(state);
@@ -900,16 +910,29 @@ function updateDateAndProfile() {
   document.getElementById("profile-email").textContent = state.profile.email;
   document.querySelector(".mini-profile strong").textContent = state.profile.name;
   if (loginEmail) loginEmail.value = state.profile.email;
-  document.getElementById("profile-weight").textContent = formatWeight(personal.weightKg);
-  document.getElementById("profile-height").textContent = `${personal.heightCm} cm tall`;
-  document.getElementById("profile-goal").textContent = formatGoalLabel(goals.primaryGoal);
-  document.getElementById("profile-target-weight").textContent = `Target ${formatWeight(goals.targetWeightKg)}`;
-  document.getElementById("profile-calorie-goal").textContent = `${goals.calorieGoal.toLocaleString()} cal`;
-  document.getElementById("profile-protein-goal").textContent = `${goals.proteinGoal}g protein`;
-  document.getElementById("profile-age").textContent = `${personal.age} years old`;
-  document.getElementById("profile-activity-level").textContent = formatActivityLabel(personal.activityLevel);
-  document.getElementById("profile-workout-goal").textContent = `${goals.weeklyWorkouts} workouts weekly`;
-  document.getElementById("profile-hydration-goal").textContent = `${(goals.hydrationGoal / 1000).toFixed(1)} L water daily.`;
+  if (state.profile.planPersonalized) {
+    document.getElementById("profile-weight").textContent = formatWeight(personal.weightKg);
+    document.getElementById("profile-height").textContent = `${personal.heightCm} cm tall`;
+    document.getElementById("profile-goal").textContent = formatGoalLabel(goals.primaryGoal);
+    document.getElementById("profile-target-weight").textContent = `Target ${formatWeight(goals.targetWeightKg)}`;
+    document.getElementById("profile-calorie-goal").textContent = `${goals.calorieGoal.toLocaleString()} cal`;
+    document.getElementById("profile-protein-goal").textContent = `${goals.proteinGoal}g protein`;
+    document.getElementById("profile-age").textContent = `${personal.age} years old`;
+    document.getElementById("profile-activity-level").textContent = formatActivityLabel(personal.activityLevel);
+    document.getElementById("profile-workout-goal").textContent = `${goals.weeklyWorkouts} workouts weekly`;
+    document.getElementById("profile-hydration-goal").textContent = `${(goals.hydrationGoal / 1000).toFixed(1)} L water daily.`;
+  } else {
+    document.getElementById("profile-weight").textContent = "Weight not set";
+    document.getElementById("profile-height").textContent = "Height not set";
+    document.getElementById("profile-goal").textContent = "Goal not set";
+    document.getElementById("profile-target-weight").textContent = "Target not set";
+    document.getElementById("profile-calorie-goal").textContent = "Calories not set";
+    document.getElementById("profile-protein-goal").textContent = "Protein not set";
+    document.getElementById("profile-age").textContent = "Age not set";
+    document.getElementById("profile-activity-level").textContent = "Activity not set";
+    document.getElementById("profile-workout-goal").textContent = "Workouts not set";
+    document.getElementById("profile-hydration-goal").textContent = "Water goal not set.";
+  }
   document.querySelectorAll(".avatar, .large-avatar").forEach((avatar) => {
     avatar.textContent = initials(state.profile.name);
   });
@@ -943,12 +966,12 @@ function updateDailyBalance() {
   }
 
   const metrics = [
-    clamp((state.nutrition.calories / state.nutrition.goal) * 100),
-    state.finance.spending <= state.finance.budget ? 100 : clamp((state.finance.budget / state.finance.spending) * 100),
-    clamp((state.sleep.minutes / 480) * 100),
-    clamp((state.workout.completed / state.workout.goal) * 100),
+    percentOf(state.nutrition.calories, state.nutrition.goal),
+    state.finance.spending <= state.finance.budget ? 100 : percentOf(state.finance.budget, state.finance.spending),
+    percentOf(state.sleep.minutes, 480),
+    percentOf(state.workout.completed, state.workout.goal),
   ];
-  if (state.installedPlugins.has("hydration")) metrics.push(clamp((state.hydration.ml / state.hydration.goal) * 100));
+  if (state.installedPlugins.has("hydration")) metrics.push(percentOf(state.hydration.ml, state.hydration.goal));
   const score = Math.round(metrics.reduce((total, metric) => total + metric, 0) / metrics.length);
   const onTrack = metrics.filter((metric) => metric >= 70).length;
   document.getElementById("balance-score").textContent = score;
@@ -973,8 +996,6 @@ function updateInsightPanel() {
     const sleepCopy = document.getElementById("attention-sleep-copy");
     if (sleepTitle) sleepTitle.textContent = insights.attention?.sleep?.title || "Sleep consistency";
     if (sleepCopy) sleepCopy.textContent = insights.attention?.sleep?.copy || "Log sleep to unlock rest insights.";
-    document.getElementById("agenda-workout-title").textContent = insights.agenda?.workout?.title || state.workout.title;
-    document.getElementById("agenda-workout-meta").textContent = insights.agenda?.workout?.meta || "No workout scheduled";
     return;
   }
 
@@ -1006,28 +1027,84 @@ function updateInsightPanel() {
   document.getElementById("attention-finance-copy").textContent = budgetLeft >= 0
     ? `$${formatMoney(budgetLeft)} left this month.`
     : `$${formatMoney(Math.abs(budgetLeft))} over budget.`;
-  document.getElementById("agenda-workout-title").textContent = state.workout.title;
-  document.getElementById("agenda-workout-meta").textContent = state.workout.duration
-    ? `${state.workout.duration} minute workout`
-    : "No workout scheduled";
+}
+
+function agendaItemMarkup(item, index) {
+  const active = item.active ?? index === 0;
+  return `
+    <div class="agenda-item ${active ? "active" : ""}">
+      <span>${escapeHtml(item.time)}</span>
+      <strong>${escapeHtml(item.title)}</strong>
+      <small>${escapeHtml(item.detail)}</small>
+    </div>
+  `;
+}
+
+function agendaItems() {
+  const todayActivity = state.activities
+    .filter((item) => item.day === "Today")
+    .slice(0, 2)
+    .map((item) => ({
+      time: item.time || "Today",
+      title: item.title,
+      detail: item.detail,
+    }));
+  const workoutInsight = state.dashboardInsights?.agenda?.workout || {};
+  const workoutTitle = workoutInsight.title || state.workout.title;
+  const workoutDetail = workoutInsight.meta || (state.workout.duration ? `${state.workout.duration} minute workout` : "No workout scheduled");
+  const hasPlannedWorkout = workoutTitle && workoutTitle !== "No workout planned";
+  const workoutTime = state.workout.time && state.workout.time !== "Not scheduled" ? state.workout.time : "Plan";
+  const items = [...todayActivity];
+
+  if (hasPlannedWorkout) {
+    items.push({
+      time: workoutTime,
+      title: workoutTitle,
+      detail: workoutDetail,
+    });
+  }
+
+  if (!items.length) {
+    return [{
+      time: "Today",
+      title: "No updates yet",
+      detail: "Log an entry to build your day.",
+      active: false,
+    }];
+  }
+
+  return items.slice(0, 3);
+}
+
+function renderAgenda() {
+  const agendaList = document.getElementById("agenda-list");
+  if (!agendaList) return;
+  agendaList.innerHTML = agendaItems().map(agendaItemMarkup).join("");
 }
 
 function updateMetrics() {
-  const nutritionPercent = Math.round((state.nutrition.calories / state.nutrition.goal) * 100);
+  const nutritionPercent = Math.round(percentOf(state.nutrition.calories, state.nutrition.goal));
   document.getElementById("calorie-count").textContent = state.nutrition.calories.toLocaleString();
+  document.getElementById("nutrition-goal-copy").textContent = `of ${state.nutrition.goal.toLocaleString()} cal`;
   document.getElementById("nutrition-percent").textContent = `${nutritionPercent}%`;
   document.getElementById("nutrition-ring").style.strokeDasharray = `${clamp(nutritionPercent)} 100`;
+  document.getElementById("nutrition-ring-wrap").setAttribute("aria-label", `${nutritionPercent} percent of calorie goal`);
   document.getElementById("protein-count").textContent = `${state.nutrition.protein}g`;
   document.getElementById("carbs-count").textContent = `${state.nutrition.carbs}g`;
   document.getElementById("fats-count").textContent = `${state.nutrition.fats}g`;
 
   const budgetLeft = state.finance.budget - state.finance.spending;
-  const financePercent = Math.round((state.finance.spending / state.finance.budget) * 100);
+  const financePercent = Math.round(percentOf(state.finance.spending, state.finance.budget));
   document.getElementById("spending-count").textContent = `$${formatMoney(state.finance.spending)}`;
-  document.getElementById("budget-left").textContent = budgetLeft >= 0 ? `$${formatMoney(budgetLeft)} left` : `$${formatMoney(Math.abs(budgetLeft))} over`;
+  document.getElementById("budget-left").textContent = state.finance.budget
+    ? budgetLeft >= 0 ? `$${formatMoney(budgetLeft)} left` : `$${formatMoney(Math.abs(budgetLeft))} over`
+    : "Set budget";
   document.getElementById("finance-progress").style.width = `${clamp(financePercent)}%`;
   const trend = document.getElementById("finance-trend");
-  trend.textContent = budgetLeft >= 0 ? `${100 - financePercent}% left` : `${financePercent - 100}% over`;
+  trend.textContent = state.finance.budget
+    ? budgetLeft >= 0 ? `${100 - financePercent}% left` : `${financePercent - 100}% over`
+    : "Budget not set";
+  trend.classList.toggle("positive", budgetLeft >= 0);
   trend.classList.toggle("negative", budgetLeft < 0);
 
   document.getElementById("sleep-count").textContent = formatMinutes(state.sleep.minutes);
@@ -1043,7 +1120,7 @@ function updateMetrics() {
     : state.workout.time;
   document.getElementById("workout-goal").textContent = `${state.workout.completed} of ${state.workout.goal} sessions`;
 
-  const hydrationPercent = Math.round((state.hydration.ml / state.hydration.goal) * 100);
+  const hydrationPercent = Math.round(percentOf(state.hydration.ml, state.hydration.goal));
   const hydrationLeft = Math.max(0, state.hydration.goal - state.hydration.ml);
   document.getElementById("hydration-count").textContent = `${(state.hydration.ml / 1000).toFixed(1)} L`;
   document.getElementById("hydration-goal-copy").textContent = `of ${(state.hydration.goal / 1000).toFixed(1)} L today`;
@@ -1057,6 +1134,7 @@ function updateMetrics() {
 
   document.body.classList.toggle("compact-mode", state.profile.compactCards);
   updateInsightPanel();
+  renderAgenda();
   updateDailyBalance();
 }
 
@@ -1734,6 +1812,7 @@ function applyAccountSetup(data) {
 
   state.profile.name = name;
   state.profile.email = email;
+  state.profile.planPersonalized = true;
   state.profile.personal = { age, heightCm, weightKg, activityLevel };
   state.profile.goals = {
     primaryGoal,
@@ -1821,12 +1900,12 @@ function openPlugin(pluginId) {
       ${nutritionScanPanel()}
       <form class="quick-form" data-form="meal">
         <h3>Log a meal</h3>
-        <label>Meal description<input required name="description" placeholder="Eggs and toast" /></label>
+        <label>Meal description<input required name="description" placeholder="Describe the meal" /></label>
         <div class="form-grid">
-          <label>Calories<input required name="calories" type="number" min="1" placeholder="320" /></label>
-          <label>Protein (g)<input name="protein" type="number" min="0" placeholder="18" /></label>
-          <label>Carbs (g)<input name="carbs" type="number" min="0" placeholder="32" /></label>
-          <label>Fats (g)<input name="fats" type="number" min="0" placeholder="12" /></label>
+          <label>Calories<input required name="calories" type="number" min="1" placeholder="Calories" /></label>
+          <label>Protein (g)<input name="protein" type="number" min="0" placeholder="Protein" /></label>
+          <label>Carbs (g)<input name="carbs" type="number" min="0" placeholder="Carbs" /></label>
+          <label>Fats (g)<input name="fats" type="number" min="0" placeholder="Fats" /></label>
         </div>
         <button class="primary-button" type="submit">Add meal</button>
       </form>${footer}`,
@@ -1840,10 +1919,10 @@ function openPlugin(pluginId) {
       <form class="quick-form" data-form="expense">
         <h3>Log an expense</h3>
         <div class="form-grid">
-          <label>Amount<input required name="amount" type="number" min="0.01" step="0.01" placeholder="25.00" /></label>
+          <label>Amount<input required name="amount" type="number" min="0.01" step="0.01" placeholder="Amount" /></label>
           <label>Category<select name="category">${optionsMarkup(pluginUiConfig.finance.categories)}</select></label>
         </div>
-        <label>Note<input name="note" placeholder="Lunch" /></label>
+        <label>Note<input name="note" placeholder="Optional note" /></label>
         <button class="primary-button" type="submit">Add expense</button>
       </form>${footer}`,
     sleep: `
@@ -2219,6 +2298,38 @@ function classifyExpense(text) {
   return categories.includes("Other") ? "Other" : categories[0];
 }
 
+function inferMealType(text) {
+  if (/breakfast/.test(text)) return "Breakfast";
+  if (/lunch/.test(text)) return "Lunch";
+  if (/dinner/.test(text)) return "Dinner";
+  if (/snack/.test(text)) return "Snack";
+  return "Meal";
+}
+
+function parseMacro(text, macro) {
+  const pattern = new RegExp(`(?:${macro}\\s*(\\d+(?:\\.\\d+)?)\\s*g?)|(?:(\\d+(?:\\.\\d+)?)\\s*g?\\s*(?:of\\s*)?${macro})`, "i");
+  const match = text.match(pattern);
+  return match ? Number(match[1] || match[2]) : null;
+}
+
+function workoutPlanFromText(text) {
+  const durationMatch = text.match(/(\d+)\s*(?:minute|min)\b/i);
+  const timeMatch = text.match(/\b(?:today|tomorrow|tonight)\b(?:\s+(?:at|around))?\s*\d{1,2}(?::\d{2})?\s*(?:am|pm)?|\b\d{1,2}(?::\d{2})?\s*(?:am|pm)\b|\b(?:today|tomorrow|tonight)\b/i);
+  const title = text
+    .replace(/^(please\s+)?(plan|schedule|add)\s+(a\s+)?/i, "")
+    .replace(/\b(?:today|tomorrow|tonight)\b.*$/i, "")
+    .replace(/\b(?:at|around)\s+\d{1,2}(?::\d{2})?\s*(?:am|pm)?\b/i, "")
+    .replace(/\b\d+\s*(?:minute|min)\b/i, "")
+    .replace(/\b(workout|exercise|training)\b/gi, "workout")
+    .trim();
+
+  return {
+    title: title || "Workout",
+    plannedTime: timeMatch ? timeMatch[0].trim() : "",
+    duration: durationMatch ? Number(durationMatch[1]) : 0,
+  };
+}
+
 async function processRequest(rawText) {
   const text = rawText.trim();
   const lower = text.toLowerCase();
@@ -2336,21 +2447,26 @@ async function processRequest(rawText) {
 
     if (/(workout|exercise|training|tomorrow)/.test(lower)) {
       if (!ensureInstalled("workout")) return;
+      const plan = workoutPlanFromText(text);
+      if (!plan.duration || !plan.plannedTime) {
+        addMessage("Tell me the workout duration and when to schedule it, or use the Workout form.", "assistant");
+        return;
+      }
       if (state.authenticated && authSession?.access_token) {
         await createBackendEntry({
           pluginId: "workout",
           entryType: "log_workout",
-          metadata: { exercise: "Full body mobility", title: "Full body mobility", plannedTime: "Tomorrow, 7:30 AM", duration: 35, completed: false },
+          metadata: { exercise: plan.title, title: plan.title, plannedTime: plan.plannedTime, duration: plan.duration, completed: false },
         });
-        addMessage("I planned a 35-minute full body mobility workout for tomorrow at 7:30 AM. It is now on your dashboard.", "assistant");
+        addMessage(`I planned ${plan.title} for ${plan.plannedTime} as a ${plan.duration}-minute workout. It is now on your dashboard.`, "assistant");
         showToast("Workout added to your plan");
         return;
       }
-      state.workout = { ...state.workout, title: "Full body mobility", time: "Tomorrow, 7:30 AM", duration: 35 };
-      addActivity({ plugin: "workout", title: "Planned full body mobility", detail: "Tomorrow, 7:30 AM - 35 min" });
+      state.workout = { ...state.workout, title: plan.title, time: plan.plannedTime, duration: plan.duration };
+      addActivity({ plugin: "workout", title: `Planned ${plan.title}`, detail: `${plan.plannedTime} - ${plan.duration} min` });
       saveState();
       renderAll();
-      addMessage("I planned a 35-minute full body mobility workout for tomorrow at 7:30 AM. It is now on your dashboard.", "assistant");
+      addMessage(`I planned ${plan.title} for ${plan.plannedTime} as a ${plan.duration}-minute workout. It is now on your dashboard.`, "assistant");
       showToast("Workout added to your plan");
       return;
     }
@@ -2364,24 +2480,39 @@ async function processRequest(rawText) {
     if (/(eggs|toast|breakfast|lunch|dinner|snack|ate|meal)/.test(lower)) {
       if (!ensureInstalled("nutrition")) return;
       const calorieMatch = lower.match(/(\d+)\s*(?:cal|calories)/);
-      const calories = calorieMatch ? Number(calorieMatch[1]) : 320;
+      if (!calorieMatch) {
+        addMessage("Tell me the calories for that meal, or use the Nutrition form to log full macros.", "assistant");
+        return;
+      }
+      const calories = Number(calorieMatch[1]);
+      const protein = parseMacro(text, "protein");
+      const carbs = parseMacro(text, "carbs?");
+      const fats = parseMacro(text, "fats?");
+      const metadata = {
+        food: text,
+        meal: inferMealType(lower),
+        calories,
+        ...(protein !== null ? { protein } : {}),
+        ...(carbs !== null ? { carbs } : {}),
+        ...(fats !== null ? { fats } : {}),
+      };
       if (state.authenticated && authSession?.access_token) {
         await createBackendEntry({
           pluginId: "nutrition",
           entryType: "log_food",
           value: calories,
           unit: "cal",
-          metadata: { food: "meal from assistant", meal: "Meal", calories, protein: 18, carbs: 32, fats: 12 },
+          metadata,
         });
         addMessage(`Logged that meal at an estimated ${calories} calories. Your daily total is now ${state.nutrition.calories.toLocaleString()} calories.`, "assistant");
         showToast("Meal added to Nutrition");
         return;
       }
       state.nutrition.calories += calories;
-      state.nutrition.protein += 18;
-      state.nutrition.carbs += 32;
-      state.nutrition.fats += 12;
-      addActivity({ plugin: "nutrition", title: "Logged meal from assistant", detail: `Meal - ${calories} cal` });
+      state.nutrition.protein += protein || 0;
+      state.nutrition.carbs += carbs || 0;
+      state.nutrition.fats += fats || 0;
+      addActivity({ plugin: "nutrition", title: `Logged ${metadata.meal.toLowerCase()}`, detail: `${metadata.meal} - ${calories} cal` });
       saveState();
       renderAll();
       addMessage(`Logged that meal at an estimated ${calories} calories. Your daily total is now ${state.nutrition.calories.toLocaleString()} calories.`, "assistant");
@@ -2624,6 +2755,7 @@ document.addEventListener("submit", async (event) => {
     const weightKg = Number(data.get("weightKg"));
     const activityLevel = String(data.get("activityLevel"));
     const tailored = getTailoredGoals({ weightKg, primaryGoal: state.profile.goals.primaryGoal, activityLevel });
+    state.profile.planPersonalized = true;
     state.profile.personal = { age, heightCm, weightKg, activityLevel };
     state.profile.goals = {
       ...state.profile.goals,
@@ -2641,6 +2773,7 @@ document.addEventListener("submit", async (event) => {
   }
 
   if (form.dataset.form === "goals") {
+    state.profile.planPersonalized = true;
     state.profile.goals = {
       ...state.profile.goals,
       primaryGoal: String(data.get("primaryGoal")),
