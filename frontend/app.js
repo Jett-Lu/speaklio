@@ -66,9 +66,9 @@ function makeDefaultState() {
   return {
     authenticated: Boolean(authSession?.access_token),
     profile: {
-      name: "Jordan Miller",
-      email: "jordan@example.com",
-      timezone: "Toronto",
+      name: "there",
+      email: "",
+      timezone: "America/Toronto",
       units: "Metric",
       notifications: true,
       weeklySummary: true,
@@ -82,31 +82,25 @@ function makeDefaultState() {
       },
       goals: {
         primaryGoal: "maintain",
-        targetWeightKg: 78,
+        targetWeightKg: 75,
         calorieGoal: 2100,
         proteinGoal: 120,
         hydrationGoal: 2700,
         weeklyWorkouts: 4,
       },
     },
-    nutrition: { calories: 1420, goal: 2100, protein: 72, carbs: 164, fats: 54 },
-    finance: { spending: 1264, budget: 2000 },
-    sleep: { minutes: 462, quality: "Good", week: [390, 430, 485, 415, 450, 510, 462] },
-    workout: { title: "Upper body strength", time: "Tomorrow, 7:30 AM", duration: 45, completed: 3, goal: 4 },
-    hydration: { ml: 1400, goal: 2500 },
-    mindfulness: { count: 3, title: "Evening reset", duration: 10 },
-    installedPlugins: new Set(["nutrition", "finance", "sleep", "workout"]),
+    nutrition: { calories: 0, goal: 2100, protein: 0, carbs: 0, fats: 0 },
+    finance: { spending: 0, budget: 2000 },
+    sleep: { minutes: 0, quality: "Not logged", week: [0, 0, 0, 0, 0, 0, 0] },
+    workout: { title: "No workout planned", time: "Not scheduled", duration: 0, completed: 0, goal: 4 },
+    hydration: { ml: 0, goal: 2700 },
+    mindfulness: { count: 0, title: "Mindful moment", duration: 10 },
+    installedPlugins: new Set(),
     activityFilter: "all",
     activitySearch: "",
-    activities: [
-      { id: 1, plugin: "nutrition", title: "Logged avocado toast and coffee", detail: "Breakfast - 420 cal", time: "8:15 AM", day: "Today" },
-      { id: 2, plugin: "sleep", title: "Sleep summary added", detail: "7h 42m - Good quality", time: "7:45 AM", day: "Today" },
-      { id: 3, plugin: "finance", title: "Added grocery expense", detail: "Groceries - $68.42", time: "Yesterday", day: "Yesterday" },
-      { id: 4, plugin: "workout", title: "Completed evening walk", detail: "32 minutes - 2.3 km", time: "Yesterday", day: "Yesterday" },
-      { id: 5, plugin: "nutrition", title: "Logged chicken rice bowl", detail: "Dinner - 610 cal", time: "Yesterday", day: "Yesterday" },
-    ],
+    activities: [],
     chats: [
-      { sender: "assistant", text: starterChatText("Jordan Miller") },
+      { sender: "assistant", text: starterChatText("there") },
     ],
   };
 }
@@ -116,10 +110,20 @@ function loadState() {
   try {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
     if (!saved) return defaults;
+
+    if (authSession?.access_token) {
+      return {
+        ...defaults,
+        activityFilter: typeof saved.activityFilter === "string" ? saved.activityFilter : defaults.activityFilter,
+        activitySearch: typeof saved.activitySearch === "string" ? saved.activitySearch : defaults.activitySearch,
+        chats: Array.isArray(saved.chats) && saved.chats.length ? saved.chats : defaults.chats,
+      };
+    }
+
     return {
       ...defaults,
       ...saved,
-      authenticated: typeof saved.authenticated === "boolean" ? saved.authenticated : defaults.authenticated,
+      authenticated: false,
       profile: {
         ...defaults.profile,
         ...saved.profile,
@@ -453,6 +457,23 @@ function entryToActivity(entry) {
   };
 }
 
+function backendActivityToTimelineItem(activity) {
+  return {
+    id: activity.id,
+    plugin: activity.pluginId || "speaklio",
+    title: activity.title || "Activity",
+    detail: activity.detail || "Updated",
+    day: formatEntryDay(activity.occurredAt || activity.createdAt),
+    time: formatEntryTime(activity.occurredAt || activity.createdAt),
+  };
+}
+
+function applyActivities(activities) {
+  state.activities = Array.isArray(activities)
+    ? activities.map(backendActivityToTimelineItem)
+    : [];
+}
+
 function applyEntries(entries) {
   const defaults = makeDefaultState();
   state.nutrition = { ...defaults.nutrition, goal: state.profile.goals.calorieGoal, calories: 0, protein: 0, carbs: 0, fats: 0 };
@@ -514,15 +535,17 @@ function applyRemoteProfile(payload) {
 }
 
 async function loadBackendData() {
-  const [me, pluginPayload, entryPayload] = await Promise.all([
+  const [me, pluginPayload, entryPayload, activityPayload] = await Promise.all([
     apiRequest("/me"),
     apiRequest("/plugins"),
     apiRequest("/entries?limit=100"),
+    apiRequest("/activities?limit=100"),
   ]);
   applyRemoteProfile(me);
   setPluginCatalog(pluginPayload.plugins || []);
   state.installedPlugins = new Set((pluginPayload.plugins || []).filter((plugin) => plugin.enabled).map((plugin) => plugin.id));
   applyEntries(entryPayload.entries || []);
+  applyActivities(activityPayload.activities || []);
   state.authenticated = true;
   saveState();
   renderAll();
@@ -632,6 +655,15 @@ function syncProfileGoalsToDashboard() {
 }
 
 function updateDailyBalance() {
+  if (state.authenticated && state.activities.length === 0) {
+    document.getElementById("balance-score").textContent = "0";
+    document.getElementById("balance-ring").style.strokeDasharray = "0 100";
+    document.getElementById("balance-ring-wrap").setAttribute("aria-label", "Daily balance score 0");
+    document.getElementById("balance-title").textContent = "Start with one logged update";
+    document.getElementById("balance-copy").textContent = "Your real progress appears after your first entry.";
+    return;
+  }
+
   const metrics = [
     clamp((state.nutrition.calories / state.nutrition.goal) * 100),
     state.finance.spending <= state.finance.budget ? 100 : clamp((state.finance.budget / state.finance.spending) * 100),
@@ -649,21 +681,28 @@ function updateDailyBalance() {
 }
 
 function updateInsightPanel() {
-  const proteinLeft = Math.max(0, 120 - state.nutrition.protein);
+  const hasEntries = state.activities.length > 0;
+  const proteinLeft = Math.max(0, state.profile.goals.proteinGoal - state.nutrition.protein);
   const budgetLeft = state.finance.budget - state.finance.spending;
   const sleepAverage = state.sleep.week.reduce((sum, value) => sum + value, 0) / state.sleep.week.length;
   const readiness = sleepAverage >= 420 && state.workout.completed >= Math.max(1, state.workout.goal - 1) ? "Good" : "Steady";
 
-  document.getElementById("next-action-title").textContent = proteinLeft
+  document.getElementById("next-action-title").textContent = !hasEntries
+    ? "Log your first update"
+    : proteinLeft
     ? "Plan protein before dinner"
     : "Keep dinner light and simple";
-  document.getElementById("next-action-copy").textContent = proteinLeft
+  document.getElementById("next-action-copy").textContent = !hasEntries
+    ? "Try a meal, expense, sleep, workout, water, or mindfulness entry."
+    : proteinLeft
     ? `${proteinLeft}g protein left keeps today's nutrition balanced.`
     : "You are on pace for nutrition today.";
-  document.getElementById("readiness-score").textContent = readiness;
-  document.getElementById("streak-count").textContent = `${Math.min(7, Math.max(1, state.activities.length))} days`;
-  document.getElementById("attention-nutrition-title").textContent = proteinLeft ? "Protein target" : "Nutrition pacing";
-  document.getElementById("attention-nutrition-copy").textContent = proteinLeft
+  document.getElementById("readiness-score").textContent = hasEntries ? readiness : "Not logged";
+  document.getElementById("streak-count").textContent = `${Math.min(7, state.activities.length)} days`;
+  document.getElementById("attention-nutrition-title").textContent = !hasEntries ? "No meals logged" : proteinLeft ? "Protein target" : "Nutrition pacing";
+  document.getElementById("attention-nutrition-copy").textContent = !hasEntries
+    ? "Nutrition insights appear after you log food or calories."
+    : proteinLeft
     ? `${proteinLeft}g left to reach today's goal.`
     : "Macros are in a healthy range today.";
   document.getElementById("attention-finance-title").textContent = budgetLeft >= 0 ? "Budget pace" : "Budget overrun";
@@ -671,7 +710,9 @@ function updateInsightPanel() {
     ? `$${formatMoney(budgetLeft)} left this month.`
     : `$${formatMoney(Math.abs(budgetLeft))} over budget.`;
   document.getElementById("agenda-workout-title").textContent = state.workout.title;
-  document.getElementById("agenda-workout-meta").textContent = `${state.workout.duration} minute workout`;
+  document.getElementById("agenda-workout-meta").textContent = state.workout.duration
+    ? `${state.workout.duration} minute workout`
+    : "No workout scheduled";
 }
 
 function updateMetrics() {
@@ -694,12 +735,15 @@ function updateMetrics() {
 
   document.getElementById("sleep-count").textContent = formatMinutes(state.sleep.minutes);
   document.getElementById("sleep-quality").textContent = state.sleep.quality;
+  const hasSleepData = state.sleep.week.some((minutes) => minutes > 0);
   document.querySelectorAll(".sleep-bars span").forEach((bar, index) => {
-    bar.style.height = `${clamp((state.sleep.week[index] / 540) * 100, 20, 100)}%`;
+    bar.style.height = hasSleepData ? `${clamp((state.sleep.week[index] / 540) * 100, 20, 100)}%` : "0%";
   });
 
   document.getElementById("workout-title").textContent = state.workout.title;
-  document.getElementById("workout-time").textContent = `${state.workout.time} - ${state.workout.duration} min`;
+  document.getElementById("workout-time").textContent = state.workout.duration
+    ? `${state.workout.time} - ${state.workout.duration} min`
+    : state.workout.time;
   document.getElementById("workout-goal").textContent = `${state.workout.completed} of ${state.workout.goal} sessions`;
 
   const hydrationPercent = Math.round((state.hydration.ml / state.hydration.goal) * 100);
@@ -1108,7 +1152,6 @@ function applyAccountSetup(data) {
       ? weightKg + 3
       : weightKg;
 
-  state.authenticated = true;
   state.profile.name = name;
   state.profile.email = email;
   state.profile.personal = { age, heightCm, weightKg, activityLevel };
@@ -1961,11 +2004,16 @@ document.addEventListener("submit", async (event) => {
 
   if (form.dataset.form === "account-setup") {
     applyAccountSetup(data);
-    await saveProfileSettings();
     hideAccountSetup();
-    closeModal();
-    shouldOpenHome = true;
-    showToast("Your plan is ready");
+    if (authSession?.access_token) {
+      await saveProfileSettings();
+      closeModal();
+      shouldOpenHome = true;
+      showToast("Your plan is ready");
+    } else {
+      await signIn(state.profile.email);
+      showToast("Your plan is ready. Verify your sign-in code.");
+    }
   }
 
   if (form.dataset.form === "notifications") {
@@ -2041,6 +2089,18 @@ document.getElementById("close-assistant").addEventListener("click", hideAssista
 document.getElementById("modal-close").addEventListener("click", closeModal);
 document.getElementById("week-summary-button").addEventListener("click", openWeekSummary);
 document.getElementById("clear-activity-button").addEventListener("click", () => {
+  if (state.authenticated && authSession?.access_token) {
+    openModal({
+      eyebrow: "ACTIVITY",
+      title: "Activity follows your entries",
+      body: `
+        <div class="modal-notice"><p>Timeline items are created from saved entries. Entry deletion support will handle activity cleanup from the backend.</p></div>
+        <button class="primary-button" data-modal-action="close">Done</button>
+      `,
+    });
+    return;
+  }
+
   openModal({
     eyebrow: "ACTIVITY",
     title: "Clear activity history?",

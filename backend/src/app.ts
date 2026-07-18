@@ -1,5 +1,6 @@
 import cors from "cors";
 import express from "express";
+import { activitiesRouter } from "./routes/activities.js";
 import { aiRouter } from "./routes/ai.js";
 import { entriesRouter } from "./routes/entries.js";
 import { healthRouter } from "./routes/health.js";
@@ -21,6 +22,7 @@ export function createApp() {
 
   app.use("/health", healthRouter);
   app.use("/me", meRouter);
+  app.use("/activities", activitiesRouter);
   app.use("/entries", entriesRouter);
   app.use("/ai", aiRouter);
   app.use("/plugins", pluginsRouter);

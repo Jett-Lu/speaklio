@@ -35,7 +35,7 @@
         </div>
         <form class="auth-form" id="login-form">
           <label for="login-email">Email</label>
-          <input id="login-email" name="email" type="email" value="jordan@example.com" autocomplete="email" required />
+          <input id="login-email" name="email" type="email" autocomplete="email" required />
           <button class="primary-button" type="submit">Send code</button>
         </form>
         <section class="otp-panel" id="otp-panel" hidden>
@@ -59,8 +59,8 @@
           </div>
           <form class="quick-form account-setup-form" data-form="account-setup">
             <div class="form-grid">
-              <label>Name<input required name="name" value="Jordan Miller" autocomplete="name" /></label>
-              <label>Email<input required name="email" type="email" value="jordan@example.com" autocomplete="email" /></label>
+              <label>Name<input required name="name" autocomplete="name" /></label>
+              <label>Email<input required name="email" type="email" autocomplete="email" /></label>
               <label>Age<input required name="age" type="number" min="13" max="120" value="29" /></label>
               <label>Activity level<select name="activityLevel"><option value="light">Light</option><option value="moderate" selected>Moderate</option><option value="active">Active</option><option value="athlete">Athlete</option></select></label>
               <label>Height (cm)<input required name="heightCm" type="number" min="100" max="240" value="178" /></label>
@@ -106,10 +106,10 @@
 
         <div class="sidebar-bottom">
           <div class="mini-profile">
-            <div class="avatar">JM</div>
+            <div class="avatar">SP</div>
             <div>
-              <strong>Jordan Miller</strong>
-              <span>Free plan</span>
+              <strong>Speaklio</strong>
+              <span>Account</span>
             </div>
           </div>
           <div class="sidebar-actions">
@@ -141,7 +141,7 @@
           <header class="page-heading home-heading">
             <div>
               <p class="eyebrow" id="current-date">TODAY</p>
-              <h1 id="greeting">Good evening, Jordan.</h1>
+              <h1 id="greeting">Welcome to Speaklio.</h1>
               <p class="heading-copy">Here is a simple look at your day.</p>
             </div>
             <button class="quiet-button desktop-only" id="week-summary-button">
@@ -289,8 +289,8 @@
               </div>
               <div class="workout-next">
                 <div>
-                  <strong id="workout-title">Upper body strength</strong>
-                  <span id="workout-time">Tomorrow, 7:30 AM</span>
+                  <strong id="workout-title">No workout planned</strong>
+                  <span id="workout-time">Not scheduled</span>
                 </div>
                 <button class="round-action" aria-label="View workout" data-plugin-open="workout">
                   <span class="icon" data-icon="arrow-right"></span>
@@ -367,7 +367,7 @@
                 </div>
                 <div class="agenda-item">
                   <span>7:30 PM</span>
-                  <strong id="agenda-workout-title">Upper body strength</strong>
+                  <strong id="agenda-workout-title">No workout planned</strong>
                   <small id="agenda-workout-meta">45 minute workout</small>
                 </div>
               </div>
@@ -498,8 +498,8 @@
           <section class="profile-card">
             <div class="large-avatar">JM</div>
             <div>
-              <h2 id="profile-name">Jordan Miller</h2>
-              <p id="profile-email">jordan@example.com</p>
+              <h2 id="profile-name">Speaklio</h2>
+              <p id="profile-email">Signed in account</p>
             </div>
             <button class="quiet-button" data-profile-action="edit">Edit profile</button>
           </section>
@@ -642,7 +642,7 @@
           <div class="chat-day">TODAY</div>
           <div class="chat-bubble assistant">
             <div class="bot-mark"><span class="icon" data-icon="sparkles"></span></div>
-            <p>Hi Jordan. Tell me what you ate, spent, or want to plan.</p>
+            <p>Hi there. Tell me what you ate, spent, drank, or want to plan.</p>
           </div>
         </div>
         <div class="suggestion-area">

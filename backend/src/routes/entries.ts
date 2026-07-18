@@ -55,6 +55,14 @@ function hasMetadataString(metadata: Record<string, unknown>, key: string) {
   return typeof metadata[key] === "string" && metadata[key].trim().length > 0;
 }
 
+function hasMetadataBoolean(metadata: Record<string, unknown>, key: string) {
+  return typeof metadata[key] === "boolean";
+}
+
+function isPositiveNumber(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value) && value > 0;
+}
+
 function validateEntryByType(
   entry: z.infer<typeof createEntrySchema>,
   context: z.RefinementCtx,
@@ -108,6 +116,94 @@ function validateEntryByType(
       code: "custom",
       path: ["metadata", "food"],
       message: "Food logs require metadata.food",
+    });
+  }
+
+  if (entry.entryType === "log_expense") {
+    if (!isPositiveNumber(entry.value)) {
+      context.addIssue({
+        code: "custom",
+        path: ["value"],
+        message: "Expense logs require a positive numeric value",
+      });
+    }
+
+    if (entry.unit && !["usd", "cad"].includes(entry.unit.toLowerCase())) {
+      context.addIssue({
+        code: "custom",
+        path: ["unit"],
+        message: "Expense logs should use unit usd or cad",
+      });
+    }
+
+    if (!hasMetadataString(entry.metadata, "category")) {
+      context.addIssue({
+        code: "custom",
+        path: ["metadata", "category"],
+        message: "Expense logs require metadata.category",
+      });
+    }
+  }
+
+  if (entry.entryType === "log_sleep") {
+    if (!isPositiveNumber(entry.value)) {
+      context.addIssue({
+        code: "custom",
+        path: ["value"],
+        message: "Sleep logs require minutes slept as a positive numeric value",
+      });
+    }
+
+    if (entry.unit && entry.unit !== "min") {
+      context.addIssue({
+        code: "custom",
+        path: ["unit"],
+        message: "Sleep logs should use unit min",
+      });
+    }
+  }
+
+  if (entry.entryType === "log_hydration") {
+    if (!isPositiveNumber(entry.value)) {
+      context.addIssue({
+        code: "custom",
+        path: ["value"],
+        message: "Hydration logs require a positive numeric value",
+      });
+    }
+
+    if (entry.unit && !["ml", "l", "oz"].includes(entry.unit.toLowerCase())) {
+      context.addIssue({
+        code: "custom",
+        path: ["unit"],
+        message: "Hydration logs should use unit ml, l, or oz",
+      });
+    }
+  }
+
+  if (entry.entryType === "log_mindfulness") {
+    if (!isPositiveNumber(entry.value)) {
+      context.addIssue({
+        code: "custom",
+        path: ["value"],
+        message: "Mindfulness logs require minutes as a positive numeric value",
+      });
+    }
+
+    if (entry.unit && entry.unit !== "min") {
+      context.addIssue({
+        code: "custom",
+        path: ["unit"],
+        message: "Mindfulness logs should use unit min",
+      });
+    }
+  }
+
+  if (entry.entryType === "log_workout" && entry.metadata.completed !== undefined && !hasMetadataBoolean(entry.metadata, "completed")) {
+    context.addIssue({
+      code: "custom",
+      path: ["metadata", "completed"],
+      message: "Workout metadata.completed must be boolean when provided",
     });
   }
 }
