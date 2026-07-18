@@ -16,6 +16,7 @@ Started on July 18, 2026:
 - Expanded backend activity summaries for frontend-written entry types.
 - Added authenticated `GET /activities` and switched the signed-in frontend timeline to backend activity rows.
 - Changed signed-in clear-activity behavior to explain that activity is derived from entries until backend deletion/archive support exists.
+- Added authenticated `GET /dashboard/summary` and switched signed-in dashboard metric refreshes to backend-computed summary data.
 
 ## Goal
 
@@ -45,6 +46,7 @@ Already available:
 - `GET /entries/:id`
 - `PATCH /entries/:id`
 - `DELETE /entries/:id`
+- `GET /dashboard/summary`
 - `POST /ai/parse-command`
 - `POST /ai/preview-entry`
 - `POST /ai/confirm-actions`

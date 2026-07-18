@@ -514,6 +514,39 @@ function applyEntries(entries) {
   state.activities = entries.map(entryToActivity);
 }
 
+function applyDashboardSummary(payload) {
+  const defaults = makeDefaultState();
+  const summary = payload && typeof payload === "object" ? payload : {};
+
+  state.nutrition = {
+    ...defaults.nutrition,
+    goal: state.profile.goals.calorieGoal,
+    ...(summary.nutrition && typeof summary.nutrition === "object" ? summary.nutrition : {}),
+  };
+  state.finance = {
+    ...defaults.finance,
+    ...(summary.finance && typeof summary.finance === "object" ? summary.finance : {}),
+  };
+  state.sleep = {
+    ...defaults.sleep,
+    ...(summary.sleep && typeof summary.sleep === "object" ? summary.sleep : {}),
+  };
+  state.workout = {
+    ...defaults.workout,
+    goal: state.profile.goals.weeklyWorkouts,
+    ...(summary.workout && typeof summary.workout === "object" ? summary.workout : {}),
+  };
+  state.hydration = {
+    ...defaults.hydration,
+    goal: state.profile.goals.hydrationGoal,
+    ...(summary.hydration && typeof summary.hydration === "object" ? summary.hydration : {}),
+  };
+  state.mindfulness = {
+    ...defaults.mindfulness,
+    ...(summary.mindfulness && typeof summary.mindfulness === "object" ? summary.mindfulness : {}),
+  };
+}
+
 function applyRemoteProfile(payload) {
   const displayName = payload.profile?.display_name || payload.user?.email?.split("@")[0] || state.profile.name;
   state.profile.name = displayName;
@@ -535,16 +568,16 @@ function applyRemoteProfile(payload) {
 }
 
 async function loadBackendData() {
-  const [me, pluginPayload, entryPayload, activityPayload] = await Promise.all([
+  const [me, pluginPayload, summaryPayload, activityPayload] = await Promise.all([
     apiRequest("/me"),
     apiRequest("/plugins"),
-    apiRequest("/entries?limit=100"),
+    apiRequest("/dashboard/summary"),
     apiRequest("/activities?limit=100"),
   ]);
   applyRemoteProfile(me);
   setPluginCatalog(pluginPayload.plugins || []);
   state.installedPlugins = new Set((pluginPayload.plugins || []).filter((plugin) => plugin.enabled).map((plugin) => plugin.id));
-  applyEntries(entryPayload.entries || []);
+  applyDashboardSummary(summaryPayload.summary);
   applyActivities(activityPayload.activities || []);
   state.authenticated = true;
   saveState();
