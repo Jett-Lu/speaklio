@@ -12,6 +12,10 @@ It should not write normal replies, mutate the database, or make up missing numb
 - Workout logs.
 - Food logs.
 - Calorie logs.
+- Expense logs.
+- Sleep logs.
+- Hydration logs.
+- Mindfulness logs.
 - Macro update requests.
 - Simple tip requests based on app logs.
 - Dashboard questions.
@@ -26,6 +30,10 @@ The backend preview mapper currently turns these actions into proposed `metric_e
 - `log_workout`
 - `log_calories`
 - `log_food`
+- `log_expense`
+- `log_sleep`
+- `log_hydration`
+- `log_mindfulness`
 
 These actions are recognized by the parser schema but are not saved as metric entries yet:
 
@@ -41,5 +49,9 @@ Unsupported actions should return a preview item with `entry: null` and a reason
 
 - Do not make up missing numbers.
 - Do not estimate calories unless the user gave the number.
+- For expenses, use the provided amount and a simple category such as Dining, Groceries, Transport, Bills, or Other.
+- For sleep, convert hours to `sleep_minutes` when the user gives hours.
+- For hydration, preserve the user's unit when it is ml, l, or oz.
+- For mindfulness, use the stated minutes and optional session title if present.
 - Do not give medical advice.
 - If the command is unclear or outside the app, return `unknown`.

@@ -2,6 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { requireAuth, type AuthenticatedRequest } from "../middleware/auth.js";
 import { mapActionsToEntries } from "../services/aiActionMapper.js";
+import { createEntrySchema } from "../services/entryContracts.js";
 import { createActivityForEntry, toActivityResponse } from "../services/entryActivity.js";
 import { aiActionSchema, parseCommandWithLocalAi } from "../services/localAiParser.js";
 import { supabaseAdmin } from "../services/supabase.js";
@@ -12,14 +13,7 @@ const parseCommandSchema = z.object({
   text: z.string().trim().min(1).max(1000),
 });
 
-const confirmedEntrySchema = z.object({
-  pluginId: z.string().trim().min(1).max(80).nullable().optional(),
-  entryType: z.string().trim().min(1).max(80),
-  value: z.number().nullable().optional(),
-  unit: z.string().trim().min(1).max(40).nullable().optional(),
-  metadata: z.record(z.string(), z.unknown()).default({}),
-  occurredAt: z.string().datetime({ offset: true }).optional(),
-});
+const confirmedEntrySchema = createEntrySchema;
 
 const previewEntrySchema = z.object({
   text: z.string().trim().min(1).max(1000).optional(),

@@ -19,6 +19,8 @@ Started on July 18, 2026:
 - Added authenticated `GET /dashboard/summary` and switched signed-in dashboard metric refreshes to backend-computed summary data.
 - Wired signed-in assistant previews to `POST /ai/preview-entry` and Confirm actions to `POST /ai/confirm-actions` for backend-supported proposed entries.
 - Removed the fake microphone fallback that logged a hardcoded meal when browser voice input was unavailable.
+- Expanded local AI action contracts and backend preview mapping for expenses, sleep, hydration, and mindfulness.
+- Shared entry validation between normal entry creation and AI confirmation so assistant-created entries follow the same contracts.
 
 ## Goal
 

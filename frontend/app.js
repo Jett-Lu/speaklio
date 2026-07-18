@@ -1013,6 +1013,18 @@ function describePreviewEntry(entry) {
   if (entry.entryType === "log_workout") {
     return `${label}: ${metadata.exercise || metadata.title || "workout"}`;
   }
+  if (entry.entryType === "log_expense") {
+    return `${label}: $${formatMoney(Number(entry.value || 0))} ${metadata.category || "expense"}`;
+  }
+  if (entry.entryType === "log_sleep") {
+    return `${label}: ${formatMinutes(Number(entry.value || 0))}${metadata.quality ? `, ${metadata.quality}` : ""}`;
+  }
+  if (entry.entryType === "log_hydration") {
+    return `${label}: ${entry.value || 0} ${entry.unit || "ml"}`;
+  }
+  if (entry.entryType === "log_mindfulness") {
+    return `${label}: ${entry.value || 0} min${metadata.title ? `, ${metadata.title}` : ""}`;
+  }
   if (entry.entryType === "log_weight") {
     return `${label}: ${entry.value || 0} ${entry.unit || ""}`.trim();
   }
