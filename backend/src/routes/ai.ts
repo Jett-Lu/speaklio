@@ -28,6 +28,70 @@ const confirmActionsSchema = z.object({
 
 const entrySelect = "id, user_id, plugin_id, entry_type, value, unit, metadata, occurred_at, created_at";
 
+const mealHints = [
+  { pattern: /\bbreakfast\b/i, meal: "breakfast" },
+  { pattern: /\blunch\b/i, meal: "lunch" },
+  { pattern: /\bdinner\b/i, meal: "dinner" },
+  { pattern: /\bsnack\b/i, meal: "snack" },
+] as const;
+
+const commonFoodEstimates = [
+  {
+    pattern: /\bchocolate chip cookies?\b/i,
+    food: "chocolate chip cookie",
+    calories: 170,
+    protein: 2,
+    carbs: 24,
+    fats: 8,
+    fiber: 1,
+  },
+  {
+    pattern: /\bcookies?\b/i,
+    food: "cookie",
+    calories: 160,
+    protein: 2,
+    carbs: 22,
+    fats: 7,
+    fiber: 1,
+  },
+  {
+    pattern: /\bice cream\b/i,
+    food: "ice cream",
+    calories: 150,
+    protein: 3,
+    carbs: 18,
+    fats: 8,
+    fiber: 0,
+  },
+  {
+    pattern: /\bbananas?\b/i,
+    food: "banana",
+    calories: 105,
+    protein: 1,
+    carbs: 27,
+    fats: 0,
+    fiber: 3,
+  },
+  {
+    pattern: /\bapples?\b/i,
+    food: "apple",
+    calories: 95,
+    protein: 1,
+    carbs: 25,
+    fats: 0,
+    fiber: 4,
+  },
+  {
+    pattern: /\beggs?\b/i,
+    food: "egg",
+    calories: 70,
+    protein: 6,
+    carbs: 1,
+    fats: 5,
+    fiber: 0,
+  },
+] as const;
+
 function toEntryResponse(entry: Record<string, unknown>) {
   return {
     id: entry.id,
@@ -52,6 +116,50 @@ function toCreateRow(userId: string, entry: z.infer<typeof confirmedEntrySchema>
     metadata: entry.metadata,
     ...(entry.occurredAt ? { occurred_at: entry.occurredAt } : {}),
   };
+}
+
+function inferredMeal(text: string) {
+  return mealHints.find((hint) => hint.pattern.test(text))?.meal ?? "snack";
+}
+
+function stripFoodTail(value: string) {
+  return value
+    .replace(/\b(today|tonight|this morning|this afternoon|this evening|yesterday)\b.*$/i, "")
+    .replace(/\b(for|as)\s+(breakfast|lunch|dinner|a snack|snack)\b.*$/i, "")
+    .replace(/[.!?]+$/g, "")
+    .trim();
+}
+
+function foodNameFromNaturalText(text: string) {
+  const match = text.match(/\b(?:i\s+(?:have|had|ate|eat|am having|was having)|(?:log|add|track|record)\s+(?:that\s+)?(?:i\s+)?(?:had|ate)?)\s+(?:a|an|some|the)?\s+(.+)/i);
+  if (!match) return null;
+  const food = stripFoodTail(match[1]);
+  if (!food || /\b(water|sleep|slept|spent|paid|bought|workout|exercise|training|meditat|mindful)\b/i.test(food)) {
+    return null;
+  }
+  return food;
+}
+
+function fallbackFoodActionFromText(text: string) {
+  const food = foodNameFromNaturalText(text);
+  if (!food) return null;
+
+  const estimate = commonFoodEstimates.find((item) => item.pattern.test(food));
+  if (!estimate) return null;
+
+  return {
+    type: "log_food",
+    food: estimate.food,
+    quantity: "estimated single serving",
+    meal: inferredMeal(text),
+    calories: estimate.calories,
+    protein: estimate.protein,
+    carbs: estimate.carbs,
+    fats: estimate.fats,
+    fiber: estimate.fiber,
+    nutrition_estimated: true,
+    confidence: 0.65,
+  } satisfies z.infer<typeof aiActionSchema>;
 }
 
 aiRouter.post("/parse-command", requireAuth, async (request, response) => {
@@ -102,11 +210,20 @@ aiRouter.post("/preview-entry", requireAuth, async (request, response) => {
         message: null,
       };
 
+    const parserPreviews = mapActionsToEntries(parserResult.actions);
+    const fallbackFoodAction = parsed.data.text && parserPreviews.every((preview) => !preview.entry)
+      ? fallbackFoodActionFromText(parsed.data.text)
+      : null;
+    const actions = fallbackFoodAction ? [fallbackFoodAction] : parserResult.actions;
+    const previews = fallbackFoodAction ? mapActionsToEntries(actions) : parserPreviews;
+
     response.json({
-      actions: parserResult.actions,
-      previews: mapActionsToEntries(parserResult.actions),
+      actions,
+      previews,
       needsConfirmation: true,
-      message: parserResult.message,
+      message: fallbackFoodAction
+        ? "I estimated nutrition for a common serving. Review before saving."
+        : parserResult.message,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Local AI preview failed";

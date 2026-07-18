@@ -25,8 +25,8 @@ test("PATCH /me/profile persists nested profile fields", async () => {
           avatar_url: null,
           timezone: "America/Toronto",
           personal_data: { age: 30, heightCm: 170, weightKg: 70, activityLevel: "active" },
-          goals: { primaryGoal: "maintain", targetWeightKg: 70, calorieGoal: 2100, proteinGoal: 120, hydrationGoal: 2600, weeklyWorkouts: 4 },
-          preferences: { units: "Metric", notifications: true, monthlyBudget: 1800 },
+          goals: { primaryGoal: "maintain", targetWeightKg: 70, calorieGoal: 2100, proteinGoal: 120, hydrationGoal: 2600, weeklyWorkouts: 4, monthlyBudget: 1800 },
+          preferences: { units: "Metric", notifications: true },
           created_at: "2026-07-18T00:00:00.000Z",
           updated_at: "2026-07-18T01:00:00.000Z",
         },
@@ -42,8 +42,8 @@ test("PATCH /me/profile persists nested profile fields", async () => {
         displayName: "Sam Reader",
         timezone: "America/Toronto",
         personal: { age: 30, heightCm: 170, weightKg: 70, activityLevel: "active" },
-        goals: { primaryGoal: "maintain", targetWeightKg: 70, calorieGoal: 2100, proteinGoal: 120, hydrationGoal: 2600, weeklyWorkouts: 4 },
-        preferences: { units: "Metric", notifications: true, monthlyBudget: 1800 },
+        goals: { primaryGoal: "maintain", targetWeightKg: 70, calorieGoal: 2100, proteinGoal: 120, hydrationGoal: 2600, weeklyWorkouts: 4, monthlyBudget: 1800 },
+        preferences: { units: "Metric", notifications: true },
       }),
     });
 
@@ -54,8 +54,8 @@ test("PATCH /me/profile persists nested profile fields", async () => {
       display_name: "Sam Reader",
       timezone: "America/Toronto",
       personal_data: { age: 30, heightCm: 170, weightKg: 70, activityLevel: "active" },
-      goals: { primaryGoal: "maintain", targetWeightKg: 70, calorieGoal: 2100, proteinGoal: 120, hydrationGoal: 2600, weeklyWorkouts: 4 },
-      preferences: { units: "Metric", notifications: true, monthlyBudget: 1800 },
+      goals: { primaryGoal: "maintain", targetWeightKg: 70, calorieGoal: 2100, proteinGoal: 120, hydrationGoal: 2600, weeklyWorkouts: 4, monthlyBudget: 1800 },
+      preferences: { units: "Metric", notifications: true },
     });
   } finally {
     await server.close();
@@ -153,7 +153,7 @@ test("GET /entries/summary aggregates entries by plugin and type", async () => {
       entryQuery = query;
       return {
         data: [
-          { id: "food-1", user_id: "user-1", plugin_id: "nutrition", entry_type: "log_food", value: 500, unit: "cal", metadata: { calories: 500, protein: 25, carbs: 40, fats: 15 }, occurred_at: "2026-07-18T10:00:00.000Z", created_at: "2026-07-18T10:00:00.000Z" },
+          { id: "food-1", user_id: "user-1", plugin_id: "nutrition", entry_type: "log_food", value: 500, unit: "cal", metadata: { calories: 500, protein: 25, carbs: 40, fats: 15, fiber: 5 }, occurred_at: "2026-07-18T10:00:00.000Z", created_at: "2026-07-18T10:00:00.000Z" },
           { id: "expense-1", user_id: "user-1", plugin_id: "finance", entry_type: "log_expense", value: 25, unit: "usd", metadata: { category: "Dining" }, occurred_at: "2026-07-18T12:00:00.000Z", created_at: "2026-07-18T12:00:00.000Z" },
           { id: "water-1", user_id: "user-1", plugin_id: "hydration", entry_type: "log_hydration", value: 0.5, unit: "l", metadata: {}, occurred_at: "2026-07-18T13:00:00.000Z", created_at: "2026-07-18T13:00:00.000Z" },
           { id: "sleep-1", user_id: "user-1", plugin_id: "sleep", entry_type: "log_sleep", value: 450, unit: "min", metadata: { quality: "Good" }, occurred_at: "2026-07-18T07:00:00.000Z", created_at: "2026-07-18T07:00:00.000Z" },
@@ -175,6 +175,7 @@ test("GET /entries/summary aggregates entries by plugin and type", async () => {
     assert.equal(totals.entries, 7);
     assert.equal((totals.nutrition as Record<string, unknown>).calories, 500);
     assert.equal((totals.nutrition as Record<string, unknown>).protein, 25);
+    assert.equal((totals.nutrition as Record<string, unknown>).fiber, 5);
     assert.equal((totals.finance as Record<string, unknown>).spending, 25);
     assert.equal((totals.hydration as Record<string, unknown>).ml, 500);
     assert.equal((totals.sleep as Record<string, unknown>).minutes, 450);
@@ -467,7 +468,7 @@ test("GET /dashboard/summary returns backend-computed card totals", async () => 
     metric_entries() {
       return {
         data: [
-          { id: "food-1", plugin_id: "nutrition", entry_type: "log_food", value: 500, unit: "cal", metadata: { food: "breakfast", calories: 500, protein: 25, carbs: 40, fats: 15 }, occurred_at: "2026-07-18T10:00:00.000Z", created_at: "2026-07-18T10:00:00.000Z" },
+          { id: "food-1", plugin_id: "nutrition", entry_type: "log_food", value: 500, unit: "cal", metadata: { food: "breakfast", calories: 500, protein: 25, carbs: 40, fats: 15, fiber: 5 }, occurred_at: "2026-07-18T10:00:00.000Z", created_at: "2026-07-18T10:00:00.000Z" },
           { id: "expense-1", plugin_id: "finance", entry_type: "log_expense", value: 25, unit: "usd", metadata: { category: "Dining" }, occurred_at: "2026-07-18T12:00:00.000Z", created_at: "2026-07-18T12:00:00.000Z" },
           { id: "water-1", plugin_id: "hydration", entry_type: "log_hydration", value: 0.5, unit: "l", metadata: {}, occurred_at: "2026-07-18T13:00:00.000Z", created_at: "2026-07-18T13:00:00.000Z" },
           { id: "sleep-1", plugin_id: "sleep", entry_type: "log_sleep", value: 450, unit: "min", metadata: { quality: "Good" }, occurred_at: "2026-07-18T07:00:00.000Z", created_at: "2026-07-18T07:00:00.000Z" },
@@ -502,6 +503,7 @@ test("GET /dashboard/summary returns backend-computed card totals", async () => 
     const summary = payload.summary as Record<string, Record<string, unknown>>;
     assert.equal(summary.nutrition.calories, 500);
     assert.equal(summary.nutrition.protein, 25);
+    assert.equal(summary.nutrition.fiber, 5);
     assert.equal(summary.finance.spending, 25);
     assert.equal(summary.finance.budget, 1500);
     assert.equal(summary.hydration.ml, 500);
@@ -637,6 +639,64 @@ test("POST /ai/preview-entry maps supported actions without calling local AI", a
     assert.equal(previews[0].entry.entryType, "log_hydration");
     assert.equal(previews[1].entry.entryType, "log_expense");
   } finally {
+    await server.close();
+  }
+});
+
+test("POST /ai/preview-entry recovers natural food prompts when local AI omits food fields", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async (input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) => {
+    const url = typeof input === "string"
+      ? input
+      : input instanceof URL
+      ? input.toString()
+      : input.url;
+
+    if (url.startsWith("http://127.0.0.1:11434")) {
+      return new Response(JSON.stringify({
+        message: {
+          content: JSON.stringify({
+            actions: [{ type: "log_food", confidence: 0.4 }],
+            needs_confirmation: true,
+            message: null,
+          }),
+        },
+      }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }
+
+    return originalFetch(input, init);
+  }) as typeof fetch;
+
+  const server = await createRouteTestServer({});
+
+  try {
+    const response = await server.request("/ai/preview-entry", {
+      method: "POST",
+      body: JSON.stringify({ text: "I have a chocolate chip cookie today" }),
+    });
+
+    assert.equal(response.status, 200);
+    const payload = await json(response);
+    const previews = payload.previews as Array<{ entry: Record<string, unknown> }>;
+    const entry = previews[0].entry;
+    assert.equal(entry.entryType, "log_food");
+    assert.equal(entry.value, 170);
+    assert.deepEqual(entry.metadata, {
+      food: "chocolate chip cookie",
+      quantity: "estimated single serving",
+      meal: "snack",
+      calories: 170,
+      protein: 2,
+      carbs: 24,
+      fats: 8,
+      fiber: 1,
+      estimated: true,
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
     await server.close();
   }
 });

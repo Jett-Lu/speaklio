@@ -90,6 +90,7 @@ function buildEntriesSummary(entries: Record<string, unknown>[]) {
         protein: 0,
         carbs: 0,
         fats: 0,
+        fiber: 0,
       },
       finance: {
         spending: 0,
@@ -128,6 +129,7 @@ function buildEntriesSummary(entries: Record<string, unknown>[]) {
       summary.totals.nutrition.protein += numberValue(metadata.protein);
       summary.totals.nutrition.carbs += numberValue(metadata.carbs);
       summary.totals.nutrition.fats += numberValue(metadata.fats);
+      summary.totals.nutrition.fiber += numberValue(metadata.fiber);
     }
 
     if (entryType === "log_calories") {

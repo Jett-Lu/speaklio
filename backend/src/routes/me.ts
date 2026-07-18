@@ -19,6 +19,7 @@ const goalsSchema = z.object({
   proteinGoal: z.number().int().min(20).max(350),
   hydrationGoal: z.number().int().min(1000).max(6000),
   weeklyWorkouts: z.number().int().min(1).max(14),
+  monthlyBudget: z.number().min(0).max(100000).optional(),
 });
 
 const preferencesSchema = z.object({
@@ -27,7 +28,6 @@ const preferencesSchema = z.object({
   weeklySummary: z.boolean().optional(),
   assistantInsights: z.boolean().optional(),
   compactCards: z.boolean().optional(),
-  monthlyBudget: z.number().min(0).max(100000).optional(),
 });
 
 const profileUpdateSchema = z.object({

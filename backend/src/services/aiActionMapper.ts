@@ -73,18 +73,30 @@ export function mapActionToEntry(action: LocalAiAction): ActionPreview {
       return { action, entry: null, reason: "Food logs need a food name" };
     }
 
+    if (action.calories === undefined || action.calories === null) {
+      return { action, entry: null, reason: "Food logs need a calorie number" };
+    }
+
     return {
       action,
       reason: null,
       entry: withDate(action, {
         pluginId: "nutrition",
         entryType: "log_food",
-        value: action.calories ?? null,
-        unit: action.calories !== undefined && action.calories !== null ? "cal" : null,
+        value: action.calories,
+        unit: "cal",
         metadata: {
           food: action.food,
           ...(action.quantity ? { quantity: action.quantity } : {}),
           ...(action.meal ? { meal: action.meal } : {}),
+          ...(action.calories !== undefined && action.calories !== null ? { calories: action.calories } : {}),
+          ...(action.protein !== undefined && action.protein !== null ? { protein: action.protein } : {}),
+          ...(action.carbs !== undefined && action.carbs !== null ? { carbs: action.carbs } : {}),
+          ...(action.fats !== undefined && action.fats !== null ? { fats: action.fats } : {}),
+          ...(action.fiber !== undefined && action.fiber !== null ? { fiber: action.fiber } : {}),
+          ...(action.nutrition_estimated !== undefined && action.nutrition_estimated !== null
+            ? { estimated: action.nutrition_estimated }
+            : {}),
         },
       }),
     };

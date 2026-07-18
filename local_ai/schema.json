@@ -22,6 +22,8 @@
               "request_macro_update",
               "request_tip",
               "ask_dashboard_question",
+              "update_last_entry",
+              "delete_last_entry",
               "unknown"
             ]
           },
@@ -181,6 +183,36 @@
           "calories": {
             "type": [
               "number",
+              "null"
+            ]
+          },
+          "protein": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "carbs": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "fats": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "fiber": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "nutrition_estimated": {
+            "type": [
+              "boolean",
               "null"
             ]
           },

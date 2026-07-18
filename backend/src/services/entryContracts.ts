@@ -64,12 +64,30 @@ export function validateEntryByType(entry: EntryContractInput, context: z.Refine
     });
   }
 
-  if (entry.entryType === "log_food" && !hasMetadataString(entry.metadata, "food")) {
-    context.addIssue({
-      code: "custom",
-      path: ["metadata", "food"],
-      message: "Food logs require metadata.food",
-    });
+  if (entry.entryType === "log_food") {
+    if (!hasMetadataString(entry.metadata, "food")) {
+      context.addIssue({
+        code: "custom",
+        path: ["metadata", "food"],
+        message: "Food logs require metadata.food",
+      });
+    }
+
+    if (!isPositiveNumber(entry.value) && !isPositiveNumber(entry.metadata.calories)) {
+      context.addIssue({
+        code: "custom",
+        path: ["value"],
+        message: "Food logs require a positive calorie value",
+      });
+    }
+
+    if (entry.unit && entry.unit !== "cal") {
+      context.addIssue({
+        code: "custom",
+        path: ["unit"],
+        message: "Food logs should use unit cal",
+      });
+    }
   }
 
   if (entry.entryType === "log_expense") {

@@ -105,10 +105,11 @@ function buildSummary(entries: Record<string, unknown>[], profile: Record<string
       protein: 0,
       carbs: 0,
       fats: 0,
+      fiber: 0,
     },
     finance: {
       spending: 0,
-      budget: numberValue(preferences.monthlyBudget ?? goals.monthlyBudget, 2000),
+      budget: numberValue(goals.monthlyBudget ?? preferences.monthlyBudget, 2000),
     },
     sleep: {
       minutes: 0,
@@ -146,6 +147,7 @@ function buildSummary(entries: Record<string, unknown>[], profile: Record<string
       summary.nutrition.protein += numberValue(metadata.protein);
       summary.nutrition.carbs += numberValue(metadata.carbs);
       summary.nutrition.fats += numberValue(metadata.fats);
+      summary.nutrition.fiber += numberValue(metadata.fiber);
     }
 
     if (entry.entry_type === "log_calories" && isToday) {
