@@ -39,6 +39,15 @@ function numberValue(value: unknown, fallback = 0) {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+function clamp(value: number, min = 0, max = 100) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function percent(value: number, goal: number) {
+  if (!Number.isFinite(value) || !Number.isFinite(goal) || goal <= 0) return 0;
+  return clamp((value / goal) * 100);
+}
+
 function stringValue(value: unknown, fallback: string) {
   return typeof value === "string" && value.trim() ? value : fallback;
 }
@@ -178,6 +187,124 @@ function buildSummary(entries: Record<string, unknown>[], profile: Record<string
   return summary;
 }
 
+function buildInsights(
+  summary: ReturnType<typeof buildSummary>,
+  entries: Record<string, unknown>[],
+  profile: Record<string, unknown> | null,
+) {
+  const goals = profile?.goals && typeof profile.goals === "object"
+    ? profile.goals as Record<string, unknown>
+    : {};
+  const hasEntries = entries.length > 0;
+  const proteinGoal = numberValue(goals.proteinGoal, 120);
+  const proteinLeft = Math.max(0, proteinGoal - summary.nutrition.protein);
+  const budgetLeft = summary.finance.budget - summary.finance.spending;
+  const sleepAverage = summary.sleep.week.reduce((total, minutes) => total + minutes, 0) / summary.sleep.week.length;
+  const readiness = hasEntries
+    ? sleepAverage >= 420 && summary.workout.completed >= Math.max(1, summary.workout.goal - 1)
+      ? "Good"
+      : "Steady"
+    : "Not logged";
+
+  if (!hasEntries) {
+    return {
+      balance: {
+        score: 0,
+        onTrack: 0,
+        total: 5,
+        title: "Start with one logged update",
+        copy: "Your real progress appears after your first entry.",
+      },
+      nextAction: {
+        pluginId: null,
+        title: "Log your first update",
+        copy: "Try a meal, expense, sleep, workout, water, or mindfulness entry.",
+      },
+      readiness,
+      streak: { days: 0 },
+      attention: {
+        nutrition: {
+          title: "No meals logged",
+          copy: "Nutrition insights appear after you log food or calories.",
+        },
+        finance: {
+          title: "Budget pace",
+          copy: `$${budgetLeft.toFixed(0)} left this month.`,
+        },
+        sleep: {
+          title: "Sleep consistency",
+          copy: "Sleep insights appear after you log rest.",
+        },
+      },
+      agenda: {
+        workout: {
+          title: summary.workout.title,
+          meta: "No workout scheduled",
+        },
+      },
+    };
+  }
+
+  const metrics = [
+    percent(summary.nutrition.calories, summary.nutrition.goal),
+    summary.finance.spending <= summary.finance.budget
+      ? 100
+      : percent(summary.finance.budget, summary.finance.spending),
+    percent(summary.sleep.minutes, 480),
+    percent(summary.workout.completed, summary.workout.goal),
+    percent(summary.hydration.ml, summary.hydration.goal),
+  ];
+  const score = Math.round(metrics.reduce((total, metric) => total + metric, 0) / metrics.length);
+  const onTrack = metrics.filter((metric) => metric >= 70).length;
+
+  return {
+    balance: {
+      score,
+      onTrack,
+      total: metrics.length,
+      title: score >= 75 ? "You are doing well today" : "A few small wins will help",
+      copy: `${onTrack} of ${metrics.length} daily goals are on track.`,
+    },
+    nextAction: {
+      pluginId: proteinLeft ? "nutrition" : "nutrition",
+      title: proteinLeft ? "Plan protein before dinner" : "Keep dinner light and simple",
+      copy: proteinLeft
+        ? `${proteinLeft}g protein left keeps today's nutrition balanced.`
+        : "You are on pace for nutrition today.",
+    },
+    readiness,
+    streak: {
+      days: Math.min(7, new Set(entries.map((entry) => occurredAt(entry).toISOString().slice(0, 10))).size),
+    },
+    attention: {
+      nutrition: {
+        title: proteinLeft ? "Protein target" : "Nutrition pacing",
+        copy: proteinLeft ? `${proteinLeft}g left to reach today's goal.` : "Macros are in a healthy range today.",
+      },
+      finance: {
+        title: budgetLeft >= 0 ? "Budget pace" : "Budget overrun",
+        copy: budgetLeft >= 0
+          ? `$${budgetLeft.toFixed(0)} left this month.`
+          : `$${Math.abs(budgetLeft).toFixed(0)} over budget.`,
+      },
+      sleep: {
+        title: "Sleep consistency",
+        copy: sleepAverage
+          ? `Weekly average is ${Math.floor(sleepAverage / 60)}h ${Math.round(sleepAverage % 60)}m.`
+          : "Sleep insights appear after you log rest.",
+      },
+    },
+    agenda: {
+      workout: {
+        title: summary.workout.title,
+        meta: summary.workout.duration
+          ? `${summary.workout.duration} minute workout`
+          : "No workout scheduled",
+      },
+    },
+  };
+}
+
 dashboardRouter.get("/summary", requireAuth, async (request, response, next) => {
   try {
     const parsed = summaryQuerySchema.safeParse(request.query);
@@ -216,6 +343,9 @@ dashboardRouter.get("/summary", requireAuth, async (request, response, next) => 
       return;
     }
 
+    const entriesForSummary = entries ?? [];
+    const summary = buildSummary(entriesForSummary, profile, windows);
+
     response.json({
       date: windows.dayStart.toISOString().slice(0, 10),
       windows: {
@@ -223,7 +353,8 @@ dashboardRouter.get("/summary", requireAuth, async (request, response, next) => 
         week: { from: windows.weekStart.toISOString(), to: windows.dayEnd.toISOString() },
         month: { from: windows.monthStart.toISOString(), to: windows.dayEnd.toISOString() },
       },
-      summary: buildSummary(entries ?? [], profile, windows),
+      summary,
+      insights: buildInsights(summary, entriesForSummary, profile),
     });
   } catch (error) {
     next(error);

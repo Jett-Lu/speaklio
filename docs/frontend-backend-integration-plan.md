@@ -29,6 +29,11 @@ Started on July 18, 2026:
 - Reset local state on sign-out so signed-in dashboard data is not written back into signed-out local storage.
 - Made profile email read-only for signed-in users and stopped profile saves from mutating local auth email until an email-change confirmation flow exists.
 - Added a Node built-in backend test runner and coverage for profile updates, plugin enablement, entry CRUD/validation, activity listing, dashboard summary, AI preview/confirm, AI mapping, and activity summaries.
+- Extended `GET /dashboard/summary` with backend-computed balance, readiness, next action, streak, attention, and agenda fields, and switched the signed-in frontend insight panel to consume them.
+- Extended `GET /plugins` and plugin enable responses with backend-owned UI metadata for display order, capabilities, supported entry types, presets, categories, and coming-soon scanner status.
+- Added authenticated `GET /entries/summary?from=&to=` aggregation for totals by plugin, entry type, and supported dashboard domains.
+- Changed assistant preview editing from a placeholder toast into a real edit modal that updates the pending backend entry payload before confirmation.
+- Split frontend localStorage helpers into signed-in UI-only persistence and signed-out local prototype state.
 
 ## Goal
 
@@ -54,10 +59,12 @@ Already available:
 - `PUT /plugins/:pluginId/enable`
 - `DELETE /plugins/:pluginId/enable`
 - `GET /entries`
+- `GET /entries/summary`
 - `POST /entries`
 - `GET /entries/:id`
 - `PATCH /entries/:id`
 - `DELETE /entries/:id`
+- `GET /activities`
 - `GET /dashboard/summary`
 - `POST /ai/parse-command`
 - `POST /ai/preview-entry`

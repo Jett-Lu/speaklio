@@ -29,6 +29,14 @@ const listQuerySchema = z.object({
   offset: z.coerce.number().int().min(0).default(0),
 });
 
+const summaryQuerySchema = z.object({
+  from: z.string().datetime({ offset: true }),
+  to: z.string().datetime({ offset: true }),
+}).refine((value) => new Date(value.from) <= new Date(value.to), {
+  message: "from must be before to",
+  path: ["from"],
+});
+
 function toEntryResponse(entry: Record<string, unknown>) {
   return {
     id: entry.id,
@@ -41,6 +49,118 @@ function toEntryResponse(entry: Record<string, unknown>) {
     occurredAt: entry.occurred_at,
     createdAt: entry.created_at,
   };
+}
+
+function metadataOf(entry: Record<string, unknown>) {
+  return entry.metadata && typeof entry.metadata === "object"
+    ? entry.metadata as Record<string, unknown>
+    : {};
+}
+
+function numberValue(value: unknown, fallback = 0) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function hydrationMl(entry: Record<string, unknown>) {
+  const amount = numberValue(entry.value);
+  const unit = String(entry.unit ?? "ml").toLowerCase();
+  if (unit === "l") return amount * 1000;
+  if (unit === "oz") return amount * 29.5735;
+  return amount;
+}
+
+function addRollup(
+  rollups: Record<string, { count: number; valueTotal: number }>,
+  key: string,
+  value: unknown,
+) {
+  rollups[key] = rollups[key] ?? { count: 0, valueTotal: 0 };
+  rollups[key].count += 1;
+  rollups[key].valueTotal += numberValue(value);
+}
+
+function buildEntriesSummary(entries: Record<string, unknown>[]) {
+  const summary = {
+    totals: {
+      entries: entries.length,
+      value: 0,
+      nutrition: {
+        calories: 0,
+        protein: 0,
+        carbs: 0,
+        fats: 0,
+      },
+      finance: {
+        spending: 0,
+      },
+      hydration: {
+        ml: 0,
+      },
+      sleep: {
+        minutes: 0,
+      },
+      mindfulness: {
+        minutes: 0,
+        count: 0,
+      },
+      workouts: {
+        planned: 0,
+        completed: 0,
+      },
+    },
+    byPlugin: {} as Record<string, { count: number; valueTotal: number }>,
+    byEntryType: {} as Record<string, { count: number; valueTotal: number }>,
+  };
+
+  entries.forEach((entry) => {
+    const metadata = metadataOf(entry);
+    const pluginId = String(entry.plugin_id ?? "uncategorized");
+    const entryType = String(entry.entry_type ?? "unknown");
+    const value = numberValue(entry.value);
+
+    summary.totals.value += value;
+    addRollup(summary.byPlugin, pluginId, entry.value);
+    addRollup(summary.byEntryType, entryType, entry.value);
+
+    if (entryType === "log_food") {
+      summary.totals.nutrition.calories += numberValue(metadata.calories ?? entry.value);
+      summary.totals.nutrition.protein += numberValue(metadata.protein);
+      summary.totals.nutrition.carbs += numberValue(metadata.carbs);
+      summary.totals.nutrition.fats += numberValue(metadata.fats);
+    }
+
+    if (entryType === "log_calories") {
+      summary.totals.nutrition.calories += value;
+    }
+
+    if (entryType === "log_expense") {
+      summary.totals.finance.spending += value;
+    }
+
+    if (entryType === "log_hydration") {
+      summary.totals.hydration.ml += hydrationMl(entry);
+    }
+
+    if (entryType === "log_sleep") {
+      summary.totals.sleep.minutes += value;
+    }
+
+    if (entryType === "log_mindfulness") {
+      summary.totals.mindfulness.minutes += value;
+      summary.totals.mindfulness.count += 1;
+    }
+
+    if (entryType === "log_workout") {
+      if (metadata.completed === true) {
+        summary.totals.workouts.completed += 1;
+      } else {
+        summary.totals.workouts.planned += 1;
+      }
+    }
+  });
+
+  return summary;
 }
 
 function toCreateRow(userId: string, entry: z.infer<typeof createEntrySchema>) {
@@ -119,6 +239,48 @@ entriesRouter.get("/", requireAuth, async (request, response, next) => {
         offset: parsed.data.offset,
         count,
       },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+entriesRouter.get("/summary", requireAuth, async (request, response, next) => {
+  try {
+    const parsed = summaryQuerySchema.safeParse(request.query);
+
+    if (!parsed.success) {
+      response.status(400).json({
+        error: "Invalid entry summary filters",
+        issues: parsed.error.issues,
+      });
+      return;
+    }
+
+    const { user } = request as AuthenticatedRequest;
+    const { data, error } = await supabaseAdmin
+      .from("metric_entries")
+      .select(entrySelect)
+      .eq("user_id", user.id)
+      .gte("occurred_at", parsed.data.from)
+      .lte("occurred_at", parsed.data.to)
+      .order("occurred_at", { ascending: false })
+      .limit(5000);
+
+    if (error) {
+      response.status(500).json({
+        error: "Unable to load entry summary",
+        message: error.message,
+      });
+      return;
+    }
+
+    response.json({
+      window: {
+        from: parsed.data.from,
+        to: parsed.data.to,
+      },
+      ...buildEntriesSummary(data ?? []),
     });
   } catch (error) {
     next(error);

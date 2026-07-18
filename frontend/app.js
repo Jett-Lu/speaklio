@@ -44,7 +44,7 @@ let plugins = [
   { id: "mindfulness", name: "Mindfulness", icon: "heart", description: "Make space for calm moments in your day." },
 ];
 
-const pluginUiConfig = {
+let pluginUiConfig = {
   finance: {
     categories: ["Dining", "Groceries", "Transport", "Bills", "Other"],
   },
@@ -135,6 +135,7 @@ function makeDefaultState() {
     workout: { title: "No workout planned", time: "Not scheduled", duration: 0, completed: 0, goal: 4 },
     hydration: { ml: 0, goal: 2700 },
     mindfulness: { count: 0, title: "Mindful moment", duration: 10 },
+    dashboardInsights: null,
     installedPlugins: new Set(),
     currentView: "home",
     activityFilter: "all",
@@ -146,51 +147,62 @@ function makeDefaultState() {
   };
 }
 
-function loadState() {
+function localUiState(saved, defaults) {
+  return {
+    currentView: typeof saved?.currentView === "string" ? saved.currentView : defaults.currentView,
+    activityFilter: typeof saved?.activityFilter === "string" ? saved.activityFilter : defaults.activityFilter,
+    activitySearch: typeof saved?.activitySearch === "string" ? saved.activitySearch : defaults.activitySearch,
+    chats: Array.isArray(saved?.chats) && saved.chats.length ? saved.chats : defaults.chats,
+  };
+}
+
+function loadLocalUiState(defaults, saved) {
+  return {
+    ...defaults,
+    ...localUiState(saved, defaults),
+  };
+}
+
+function loadSignedOutState(defaults, saved) {
+  return {
+    ...defaults,
+    ...saved,
+    authenticated: false,
+    profile: {
+      ...defaults.profile,
+      ...saved.profile,
+      personal: { ...defaults.profile.personal, ...saved.profile?.personal },
+      goals: { ...defaults.profile.goals, ...saved.profile?.goals },
+    },
+    nutrition: { ...defaults.nutrition, ...saved.nutrition },
+    finance: { ...defaults.finance, ...saved.finance },
+    sleep: { ...defaults.sleep, ...saved.sleep },
+    workout: { ...defaults.workout, ...saved.workout },
+    hydration: { ...defaults.hydration, ...saved.hydration },
+    mindfulness: { ...defaults.mindfulness, ...saved.mindfulness },
+    installedPlugins: new Set(saved.installedPlugins || [...defaults.installedPlugins]),
+    ...localUiState(saved, defaults),
+    activities: Array.isArray(saved.activities) ? saved.activities : defaults.activities,
+  };
+}
+
+function loadLocalState() {
   const defaults = makeDefaultState();
   try {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
     if (!saved) return defaults;
 
     if (authSession?.access_token) {
-      return {
-        ...defaults,
-        currentView: typeof saved.currentView === "string" ? saved.currentView : defaults.currentView,
-        activityFilter: typeof saved.activityFilter === "string" ? saved.activityFilter : defaults.activityFilter,
-        activitySearch: typeof saved.activitySearch === "string" ? saved.activitySearch : defaults.activitySearch,
-        chats: Array.isArray(saved.chats) && saved.chats.length ? saved.chats : defaults.chats,
-      };
+      return loadLocalUiState(defaults, saved);
     }
 
-    return {
-      ...defaults,
-      ...saved,
-      authenticated: false,
-      profile: {
-        ...defaults.profile,
-        ...saved.profile,
-        personal: { ...defaults.profile.personal, ...saved.profile?.personal },
-        goals: { ...defaults.profile.goals, ...saved.profile?.goals },
-      },
-      nutrition: { ...defaults.nutrition, ...saved.nutrition },
-      finance: { ...defaults.finance, ...saved.finance },
-      sleep: { ...defaults.sleep, ...saved.sleep },
-      workout: { ...defaults.workout, ...saved.workout },
-      hydration: { ...defaults.hydration, ...saved.hydration },
-      mindfulness: { ...defaults.mindfulness, ...saved.mindfulness },
-      installedPlugins: new Set(saved.installedPlugins || [...defaults.installedPlugins]),
-      currentView: typeof saved.currentView === "string" ? saved.currentView : defaults.currentView,
-      activityFilter: typeof saved.activityFilter === "string" ? saved.activityFilter : defaults.activityFilter,
-      activitySearch: typeof saved.activitySearch === "string" ? saved.activitySearch : defaults.activitySearch,
-      activities: Array.isArray(saved.activities) ? saved.activities : defaults.activities,
-      chats: Array.isArray(saved.chats) && saved.chats.length ? saved.chats : defaults.chats,
-    };
+    return loadSignedOutState(defaults, saved);
   } catch {
     return defaults;
   }
 }
 
-let state = loadState();
+let state = loadLocalState();
 syncStarterChatGreeting(state);
 
 const views = document.querySelectorAll(".view");
@@ -415,13 +427,26 @@ async function apiRequest(path, options = {}) {
 
 function setPluginCatalog(nextPlugins) {
   if (!Array.isArray(nextPlugins) || nextPlugins.length === 0) return;
-  plugins = nextPlugins.map((plugin) => ({
-    id: String(plugin.id),
-    name: String(plugin.name),
-    icon: String(plugin.icon || "sparkles"),
-    description: String(plugin.description || ""),
-    enabled: Boolean(plugin.enabled),
-  }));
+  plugins = nextPlugins.map((plugin) => {
+    const pluginId = String(plugin.id);
+    const uiConfig = plugin.ui && typeof plugin.ui === "object" ? plugin.ui : {};
+    pluginUiConfig = {
+      ...pluginUiConfig,
+      [pluginId]: {
+        ...(pluginUiConfig[pluginId] || {}),
+        ...uiConfig,
+      },
+    };
+    return {
+      id: pluginId,
+      name: String(plugin.name),
+      icon: String(plugin.icon || "sparkles"),
+      description: String(plugin.description || ""),
+      enabled: Boolean(plugin.enabled),
+      displayOrder: Number(uiConfig.displayOrder || 999),
+      ui: uiConfig,
+    };
+  }).sort((a, b) => a.displayOrder - b.displayOrder || a.name.localeCompare(b.name));
   pluginMap = Object.fromEntries(plugins.map((plugin) => [plugin.id, plugin]));
 }
 
@@ -560,6 +585,7 @@ function applyActivities(activities) {
 
 function applyEntries(entries) {
   const defaults = makeDefaultState();
+  state.dashboardInsights = null;
   state.nutrition = { ...defaults.nutrition, goal: state.profile.goals.calorieGoal, calories: 0, protein: 0, carbs: 0, fats: 0 };
   state.finance = { ...defaults.finance, spending: 0 };
   state.sleep = { ...defaults.sleep };
@@ -600,7 +626,9 @@ function applyEntries(entries) {
 
 function applyDashboardSummary(payload) {
   const defaults = makeDefaultState();
-  const summary = payload && typeof payload === "object" ? payload : {};
+  const hasEnvelope = payload?.summary && typeof payload.summary === "object";
+  const summary = hasEnvelope ? payload.summary : payload && typeof payload === "object" ? payload : {};
+  state.dashboardInsights = hasEnvelope && payload.insights && typeof payload.insights === "object" ? payload.insights : null;
 
   state.nutrition = {
     ...defaults.nutrition,
@@ -661,7 +689,7 @@ async function loadBackendData() {
   applyRemoteProfile(me);
   setPluginCatalog(pluginPayload.plugins || []);
   state.installedPlugins = new Set((pluginPayload.plugins || []).filter((plugin) => plugin.enabled).map((plugin) => plugin.id));
-  applyDashboardSummary(summaryPayload.summary);
+  applyDashboardSummary(summaryPayload);
   applyActivities(activityPayload.activities || []);
   state.authenticated = true;
   clearBackendStatus();
@@ -713,27 +741,37 @@ async function saveProfileSettings(overrides = {}) {
   return result.profile;
 }
 
-function saveState() {
+function signedInLocalUiState() {
+  return {
+    scope: "local-ui",
+    currentView: state.currentView,
+    activityFilter: state.activityFilter,
+    activitySearch: state.activitySearch,
+    chats: state.chats,
+  };
+}
+
+function signedOutLocalState() {
+  return {
+    ...state,
+    installedPlugins: [...state.installedPlugins],
+  };
+}
+
+function saveLocalState() {
   try {
     if (state.authenticated && authSession?.access_token) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({
-        scope: "local-ui",
-        currentView: state.currentView,
-        activityFilter: state.activityFilter,
-        activitySearch: state.activitySearch,
-        chats: state.chats,
-      }));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(signedInLocalUiState()));
       return;
     }
 
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({
-      ...state,
-      installedPlugins: [...state.installedPlugins],
-    }));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(signedOutLocalState()));
   } catch {
     showToast("This browser could not save the latest update.");
   }
 }
+
+const saveState = saveLocalState;
 
 function showToast(message) {
   toast.textContent = message;
@@ -797,6 +835,17 @@ function syncProfileGoalsToDashboard() {
 }
 
 function updateDailyBalance() {
+  const balance = state.dashboardInsights?.balance;
+  if (balance) {
+    const score = Number(balance.score || 0);
+    document.getElementById("balance-score").textContent = score;
+    document.getElementById("balance-ring").style.strokeDasharray = `${clamp(score)} 100`;
+    document.getElementById("balance-ring-wrap").setAttribute("aria-label", `Daily balance score ${score}`);
+    document.getElementById("balance-title").textContent = balance.title || "Today at a glance";
+    document.getElementById("balance-copy").textContent = balance.copy || `${balance.onTrack || 0} of ${balance.total || 0} daily goals are on track.`;
+    return;
+  }
+
   if (state.authenticated && state.activities.length === 0) {
     document.getElementById("balance-score").textContent = "0";
     document.getElementById("balance-ring").style.strokeDasharray = "0 100";
@@ -823,6 +872,25 @@ function updateDailyBalance() {
 }
 
 function updateInsightPanel() {
+  const insights = state.dashboardInsights;
+  if (insights) {
+    document.getElementById("next-action-title").textContent = insights.nextAction?.title || "Review your day";
+    document.getElementById("next-action-copy").textContent = insights.nextAction?.copy || "Your next action appears after dashboard data loads.";
+    document.getElementById("readiness-score").textContent = insights.readiness || "Not logged";
+    document.getElementById("streak-count").textContent = `${insights.streak?.days || 0} days`;
+    document.getElementById("attention-nutrition-title").textContent = insights.attention?.nutrition?.title || "Nutrition";
+    document.getElementById("attention-nutrition-copy").textContent = insights.attention?.nutrition?.copy || "Log meals to unlock nutrition insights.";
+    document.getElementById("attention-finance-title").textContent = insights.attention?.finance?.title || "Budget";
+    document.getElementById("attention-finance-copy").textContent = insights.attention?.finance?.copy || "Log expenses to track budget pace.";
+    const sleepTitle = document.getElementById("attention-sleep-title");
+    const sleepCopy = document.getElementById("attention-sleep-copy");
+    if (sleepTitle) sleepTitle.textContent = insights.attention?.sleep?.title || "Sleep consistency";
+    if (sleepCopy) sleepCopy.textContent = insights.attention?.sleep?.copy || "Log sleep to unlock rest insights.";
+    document.getElementById("agenda-workout-title").textContent = insights.agenda?.workout?.title || state.workout.title;
+    document.getElementById("agenda-workout-meta").textContent = insights.agenda?.workout?.meta || "No workout scheduled";
+    return;
+  }
+
   const hasEntries = state.activities.length > 0;
   const proteinLeft = Math.max(0, state.profile.goals.proteinGoal - state.nutrition.protein);
   const budgetLeft = state.finance.budget - state.finance.spending;
@@ -1147,6 +1215,172 @@ function describePreviewEntry(entry) {
   return `${label}: ${entry.entryType.replaceAll("_", " ")}`;
 }
 
+function assistantEntryEditor(entry, index) {
+  const metadata = entry.metadata && typeof entry.metadata === "object" ? entry.metadata : {};
+  const field = (name, label, value, attrs = "") => `
+    <label>${escapeHtml(label)}<input name="${name}-${index}" value="${escapeHtml(value ?? "")}" ${attrs} /></label>
+  `;
+  const numberField = (name, label, value, attrs = "") => field(name, label, value, `type="number" ${attrs}`);
+  const selectField = (name, label, values, selectedValue) => `
+    <label>${escapeHtml(label)}<select name="${name}-${index}">${optionsMarkup(values, selectedValue)}</select></label>
+  `;
+  let fields = "";
+
+  if (entry.entryType === "log_food") {
+    fields = `
+      ${field("food", "Meal description", metadata.food || metadata.meal || "")}
+      <div class="form-grid">
+        ${numberField("calories", "Calories", metadata.calories ?? entry.value ?? "", 'min="1" required')}
+        ${numberField("protein", "Protein (g)", metadata.protein ?? 0, 'min="0"')}
+        ${numberField("carbs", "Carbs (g)", metadata.carbs ?? 0, 'min="0"')}
+        ${numberField("fats", "Fats (g)", metadata.fats ?? 0, 'min="0"')}
+      </div>
+    `;
+  } else if (entry.entryType === "log_calories") {
+    fields = numberField("calories", "Calories", entry.value ?? "", 'min="1" required');
+  } else if (entry.entryType === "log_expense") {
+    fields = `
+      <div class="form-grid">
+        ${numberField("amount", "Amount", entry.value ?? "", 'min="0.01" step="0.01" required')}
+        ${selectField("category", "Category", pluginUiConfig.finance.categories, metadata.category || "Other")}
+      </div>
+      ${field("note", "Note", metadata.note || metadata.category || "")}
+    `;
+  } else if (entry.entryType === "log_sleep") {
+    fields = `
+      <div class="form-grid">
+        ${numberField("hours", "Hours slept", entry.value ? (Number(entry.value) / 60).toFixed(1) : "", 'min="0" max="16" step="0.1" required')}
+        ${selectField("quality", "Quality", pluginUiConfig.sleep.qualityOptions, metadata.quality || "Good")}
+      </div>
+    `;
+  } else if (entry.entryType === "log_hydration") {
+    fields = `
+      <div class="form-grid">
+        ${numberField("amount", "Amount", entry.value ?? "", 'min="0.01" step="0.01" required')}
+        ${selectField("unit", "Unit", ["ml", "l", "oz"], entry.unit || "ml")}
+      </div>
+    `;
+  } else if (entry.entryType === "log_mindfulness") {
+    fields = `
+      <div class="form-grid">
+        ${numberField("minutes", "Minutes", entry.value ?? "", 'min="1" required')}
+        ${field("title", "Session", metadata.title || "Mindful moment")}
+      </div>
+    `;
+  } else if (entry.entryType === "log_workout") {
+    fields = `
+      ${field("title", "Workout name", metadata.title || metadata.exercise || "")}
+      <div class="form-grid">
+        ${field("plannedTime", "When", metadata.plannedTime || "")}
+        ${numberField("duration", "Minutes", metadata.duration ?? metadata.durationMinutes ?? "", 'min="1"')}
+        ${selectField("completed", "Status", ["planned", "completed"], metadata.completed === true ? "completed" : "planned")}
+      </div>
+    `;
+  } else if (entry.entryType === "log_weight") {
+    fields = `
+      <div class="form-grid">
+        ${numberField("weight", "Weight", entry.value ?? "", 'min="1" step="0.1" required')}
+        ${selectField("unit", "Unit", ["kg", "lb"], entry.unit || "kg")}
+      </div>
+    `;
+  } else {
+    fields = `<p class="field-note">This entry type can be confirmed, but inline editing is not available yet.</p>`;
+  }
+
+  return `
+    <div class="quick-form">
+      <h3>${escapeHtml(describePreviewEntry(entry))}</h3>
+      <input type="hidden" name="pluginId-${index}" value="${escapeHtml(entry.pluginId ?? "")}" />
+      <input type="hidden" name="entryType-${index}" value="${escapeHtml(entry.entryType ?? "")}" />
+      ${fields}
+    </div>
+  `;
+}
+
+function updateAssistantPreviewSummary() {
+  const entries = pendingAssistantPreview?.entries || [];
+  if (!entries.length) {
+    setAssistantPreview("No pending action", "Ask Speaklio to log something and this panel will prepare a structured update for your review.");
+    return;
+  }
+
+  const descriptions = entries.map(describePreviewEntry);
+  setAssistantPreview(
+    `${entries.length} action${entries.length === 1 ? "" : "s"} ready`,
+    `${descriptions.join(" - ")}. Confirm to save ${entries.length === 1 ? "it" : "them"}.`,
+  );
+}
+
+function editedAssistantEntry(entry, data, index) {
+  const metadata = entry.metadata && typeof entry.metadata === "object" ? { ...entry.metadata } : {};
+  const edited = { ...entry, metadata };
+  const valueOf = (name) => data.get(`${name}-${index}`);
+  const numberOf = (name, fallback = 0) => {
+    const parsed = Number(valueOf(name));
+    return Number.isFinite(parsed) ? parsed : fallback;
+  };
+  const stringOf = (name, fallback = "") => String(valueOf(name) || fallback).trim();
+
+  if (entry.entryType === "log_food") {
+    const calories = numberOf("calories");
+    edited.value = calories;
+    edited.unit = "cal";
+    edited.metadata = {
+      ...metadata,
+      food: stringOf("food", metadata.food || metadata.meal || "meal"),
+      meal: metadata.meal || "Meal",
+      calories,
+      protein: numberOf("protein"),
+      carbs: numberOf("carbs"),
+      fats: numberOf("fats"),
+    };
+  } else if (entry.entryType === "log_calories") {
+    edited.value = numberOf("calories");
+    edited.unit = "cal";
+  } else if (entry.entryType === "log_expense") {
+    const category = stringOf("category", metadata.category || "Other");
+    edited.value = numberOf("amount");
+    edited.unit = "usd";
+    edited.metadata = {
+      ...metadata,
+      category,
+      note: stringOf("note", metadata.note || category),
+    };
+  } else if (entry.entryType === "log_sleep") {
+    edited.value = numberOf("hours") * 60;
+    edited.unit = "min";
+    edited.metadata = {
+      ...metadata,
+      quality: stringOf("quality", metadata.quality || "Good"),
+    };
+  } else if (entry.entryType === "log_hydration") {
+    edited.value = numberOf("amount");
+    edited.unit = stringOf("unit", entry.unit || "ml");
+  } else if (entry.entryType === "log_mindfulness") {
+    edited.value = numberOf("minutes");
+    edited.unit = "min";
+    edited.metadata = {
+      ...metadata,
+      title: stringOf("title", metadata.title || "Mindful moment"),
+    };
+  } else if (entry.entryType === "log_workout") {
+    const title = stringOf("title", metadata.title || metadata.exercise || "Workout");
+    edited.metadata = {
+      ...metadata,
+      exercise: title,
+      title,
+      plannedTime: stringOf("plannedTime", metadata.plannedTime || ""),
+      duration: numberOf("duration", Number(metadata.duration ?? metadata.durationMinutes ?? 0)),
+      completed: stringOf("completed") === "completed",
+    };
+  } else if (entry.entryType === "log_weight") {
+    edited.value = numberOf("weight");
+    edited.unit = stringOf("unit", entry.unit || "kg");
+  }
+
+  return normalizePreviewEntry(edited);
+}
+
 async function previewBackendAssistantRequest(text) {
   try {
     const payload = await apiRequest("/ai/preview-entry", {
@@ -1198,19 +1432,23 @@ async function confirmAssistantPreview() {
 }
 
 function editAssistantPreview() {
-  const entry = pendingAssistantPreview?.entries?.[0];
-  if (!entry) {
+  const entries = pendingAssistantPreview?.entries;
+  if (!entries?.length) {
     showToast("No pending assistant action");
     return;
   }
 
-  if (entry.pluginId && pluginMap[entry.pluginId]) {
-    openPlugin(entry.pluginId);
-    addMessage(`Opened ${pluginLabel(entry.pluginId)} so you can adjust the details before saving.`, "assistant");
-    return;
-  }
-
-  showToast("This assistant action is not editable yet");
+  openModal({
+    eyebrow: "ASSISTANT",
+    title: "Edit pending action",
+    body: `
+      <form class="quick-form" data-form="assistant-preview">
+        <div class="modal-notice"><p>Review the details Speaklio will save when you confirm.</p></div>
+        ${entries.map(assistantEntryEditor).join("")}
+        <button class="primary-button" type="submit">Update preview</button>
+      </form>
+    `,
+  });
 }
 
 function previewAssistantRequest(text) {
@@ -2106,6 +2344,21 @@ document.addEventListener("submit", async (event) => {
   event.preventDefault();
   const data = new FormData(form);
   let shouldOpenHome = false;
+
+  if (form.dataset.form === "assistant-preview") {
+    if (!pendingAssistantPreview?.entries?.length) {
+      closeModal();
+      showToast("No pending assistant action");
+      return;
+    }
+
+    pendingAssistantPreview.entries = pendingAssistantPreview.entries.map((entry, index) => editedAssistantEntry(entry, data, index));
+    updateAssistantPreviewSummary();
+    closeModal();
+    addMessage("I updated the pending action. Confirm it when it looks right.", "assistant");
+    showToast("Assistant preview updated");
+    return;
+  }
 
   if (form.dataset.form === "meal") {
     const calories = Number(data.get("calories"));

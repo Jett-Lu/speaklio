@@ -146,6 +146,66 @@ test("GET /entries rejects invalid filters", async () => {
   }
 });
 
+test("GET /entries/summary aggregates entries by plugin and type", async () => {
+  let entryQuery: MockQuery | null = null;
+  const server = await createRouteTestServer({
+    metric_entries(query) {
+      entryQuery = query;
+      return {
+        data: [
+          { id: "food-1", user_id: "user-1", plugin_id: "nutrition", entry_type: "log_food", value: 500, unit: "cal", metadata: { calories: 500, protein: 25, carbs: 40, fats: 15 }, occurred_at: "2026-07-18T10:00:00.000Z", created_at: "2026-07-18T10:00:00.000Z" },
+          { id: "expense-1", user_id: "user-1", plugin_id: "finance", entry_type: "log_expense", value: 25, unit: "usd", metadata: { category: "Dining" }, occurred_at: "2026-07-18T12:00:00.000Z", created_at: "2026-07-18T12:00:00.000Z" },
+          { id: "water-1", user_id: "user-1", plugin_id: "hydration", entry_type: "log_hydration", value: 0.5, unit: "l", metadata: {}, occurred_at: "2026-07-18T13:00:00.000Z", created_at: "2026-07-18T13:00:00.000Z" },
+          { id: "sleep-1", user_id: "user-1", plugin_id: "sleep", entry_type: "log_sleep", value: 450, unit: "min", metadata: { quality: "Good" }, occurred_at: "2026-07-18T07:00:00.000Z", created_at: "2026-07-18T07:00:00.000Z" },
+          { id: "workout-1", user_id: "user-1", plugin_id: "workout", entry_type: "log_workout", value: null, unit: null, metadata: { exercise: "Run", completed: true }, occurred_at: "2026-07-18T09:00:00.000Z", created_at: "2026-07-18T09:00:00.000Z" },
+          { id: "workout-2", user_id: "user-1", plugin_id: "workout", entry_type: "log_workout", value: null, unit: null, metadata: { exercise: "Lift" }, occurred_at: "2026-07-19T09:00:00.000Z", created_at: "2026-07-19T09:00:00.000Z" },
+          { id: "mind-1", user_id: "user-1", plugin_id: "mindfulness", entry_type: "log_mindfulness", value: 10, unit: "min", metadata: {}, occurred_at: "2026-07-18T14:00:00.000Z", created_at: "2026-07-18T14:00:00.000Z" },
+        ],
+        error: null,
+      };
+    },
+  });
+
+  try {
+    const response = await server.request("/entries/summary?from=2026-07-18T00:00:00.000Z&to=2026-07-19T23:59:59.999Z");
+
+    assert.equal(response.status, 200);
+    const payload = await json(response);
+    const totals = payload.totals as Record<string, Record<string, unknown> | number>;
+    assert.equal(totals.entries, 7);
+    assert.equal((totals.nutrition as Record<string, unknown>).calories, 500);
+    assert.equal((totals.nutrition as Record<string, unknown>).protein, 25);
+    assert.equal((totals.finance as Record<string, unknown>).spending, 25);
+    assert.equal((totals.hydration as Record<string, unknown>).ml, 500);
+    assert.equal((totals.sleep as Record<string, unknown>).minutes, 450);
+    assert.equal((totals.mindfulness as Record<string, unknown>).minutes, 10);
+    assert.equal((totals.workouts as Record<string, unknown>).completed, 1);
+    assert.equal((totals.workouts as Record<string, unknown>).planned, 1);
+    assert.equal(((payload.byPlugin as Record<string, Record<string, unknown>>).workout).count, 2);
+    assert.equal(((payload.byEntryType as Record<string, Record<string, unknown>>).log_food).valueTotal, 500);
+    assert.ok(entryQuery);
+    assert.equal(hasOperation(entryQuery, "eq", "user_id"), true);
+    assert.equal(hasOperation(entryQuery, "gte", "occurred_at"), true);
+    assert.equal(hasOperation(entryQuery, "lte", "occurred_at"), true);
+    assert.equal(hasOperation(entryQuery, "limit", 5000), true);
+  } finally {
+    await server.close();
+  }
+});
+
+test("GET /entries/summary rejects invalid windows", async () => {
+  const server = await createRouteTestServer({});
+
+  try {
+    const response = await server.request("/entries/summary?from=2026-07-20T00:00:00.000Z&to=2026-07-18T00:00:00.000Z");
+    assert.equal(response.status, 400);
+    const payload = await json(response);
+    assert.equal(payload.error, "Invalid entry summary filters");
+  } finally {
+    await server.close();
+  }
+});
+
 test("POST /entries validates frontend entry contracts before insert", async () => {
   const server = await createRouteTestServer({});
 
@@ -411,6 +471,13 @@ test("GET /dashboard/summary returns backend-computed card totals", async () => 
     assert.equal(summary.sleep.minutes, 450);
     assert.equal(summary.workout.completed, 1);
     assert.equal(summary.mindfulness.count, 1);
+    const insights = payload.insights as Record<string, Record<string, unknown>>;
+    assert.equal((insights.balance as Record<string, unknown>).score, 51);
+    assert.equal((insights.balance as Record<string, unknown>).onTrack, 2);
+    assert.equal((insights.nextAction as Record<string, unknown>).title, "Plan protein before dinner");
+    assert.equal(insights.readiness, "Steady");
+    assert.equal(((insights.attention as Record<string, Record<string, unknown>>).finance).title, "Budget pace");
+    assert.equal(((insights.agenda as Record<string, Record<string, unknown>>).workout).meta, "No workout scheduled");
   } finally {
     await server.close();
   }
@@ -456,6 +523,7 @@ test("GET /plugins merges active plugins with user enablement", async () => {
     const plugins = payload.plugins as Array<Record<string, unknown>>;
     assert.equal(plugins.find((plugin) => plugin.id === "nutrition")?.enabled, false);
     assert.equal(plugins.find((plugin) => plugin.id === "sleep")?.enabled, true);
+    assert.deepEqual((plugins.find((plugin) => plugin.id === "sleep")?.ui as Record<string, unknown>).qualityOptions, ["Great", "Good", "Fair", "Poor"]);
   } finally {
     await server.close();
   }
@@ -482,6 +550,7 @@ test("PUT /plugins/:pluginId/enable upserts enabled user setting", async () => {
     assert.equal(response.status, 200);
     const payload = await json(response);
     assert.equal((payload.plugin as Record<string, unknown>).enabled, true);
+    assert.deepEqual(((payload.plugin as Record<string, unknown>).ui as Record<string, unknown>).presetsMl, [250, 500, 750]);
     assert.deepEqual(upsertBody, {
       user_id: "user-1",
       plugin_id: "hydration",
