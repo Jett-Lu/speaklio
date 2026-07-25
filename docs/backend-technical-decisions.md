@@ -2,7 +2,7 @@
 
 Status: active working decisions
 
-Last updated: 2026-06-23
+Last updated: 2026-07-18
 
 ## Backend Shape
 
@@ -45,6 +45,7 @@ Current CRUD route group:
 
 ```http
 GET /entries
+GET /entries/summary
 POST /entries
 GET /entries/:id
 PATCH /entries/:id
@@ -55,18 +56,23 @@ All entry operations are scoped to the authenticated user.
 
 API fields use camelCase. Database columns remain snake_case.
 
-`GET /entries` supports `pluginId`, `entryType`, `from`, `to`, `limit`, and `offset`.
+`GET /entries` supports `pluginId`, `entryType`, `from`, `to`, `limit`, and `offset`. `GET /entries/summary` returns date-window totals by plugin, entry type, and supported dashboard domains.
 
 `POST /entries` creates a matching `activities` row as a timeline item. Activities now carry a nullable `metric_entry_id`, so deleting a metric entry also deletes its related activity through database cascade behavior.
 
-The first validation pass is intentionally lightweight:
+Current supported entry validation covers:
 
 - Weight logs require a numeric value and `kg` or `lb`.
 - Calorie logs require a numeric value and use `cal`.
 - Workout logs require `metadata.exercise`.
 - Food logs require `metadata.food`.
+- Expense logs require a positive value, `usd` or `cad` when a unit is supplied, and `metadata.category`.
+- Sleep logs require positive minutes and `min` when a unit is supplied.
+- Hydration logs require a positive amount with `ml`, `l`, or `oz` when a unit is supplied.
+- Mindfulness logs require positive minutes and `min` when a unit is supplied.
+- Workout `metadata.completed`, when supplied, must be boolean. Planned and completed workouts remain `log_workout` entries for the prototype.
 
-More detailed domain validation can be added once the frontend shapes settle.
+The frontend, manual CRUD path, and AI confirmation path share these contracts.
 
 ## Plugin Settings
 
@@ -83,6 +89,22 @@ DELETE /plugins/:pluginId/enable
 ```
 
 This supports dashboard modules without making third-party plugin development part of the capstone scope.
+
+Plugin and integration UI metadata are backend-owned read-model metadata for the current prototype. The frontend keeps fallback registries for signed-out rendering only.
+
+## Read Models
+
+Current read-model route group:
+
+```http
+GET /activities
+GET /dashboard/summary
+GET /integrations
+```
+
+- `GET /activities` exposes backend-generated timeline rows for the current user.
+- `GET /dashboard/summary` owns dashboard totals, date windows, profile basics, enabled plugin cards, balance/readiness/attention copy, and agenda data.
+- `GET /integrations` exposes connected-app status metadata. Apple Health and Apple Watch return unavailable status instead of fake connection flows.
 
 ## Local AI Strategy
 
@@ -158,10 +180,11 @@ Do not expose `SUPABASE_SECRET_KEY` in frontend or mobile code.
 - Local AI depends on Ollama running on each developer machine.
 - AI parsing is available to authenticated users and requires explicit confirmation before writes.
 - Activity timeline rows are created automatically for manual entries and AI-confirmed entries.
+- Signed-in frontend state is loaded from backend read models; localStorage stores only local UI preferences and assistant chat UI.
 
 ## Next Decisions
 
 - Which parsed action types need first-class domain tables later.
 - Whether local AI remains development-only or becomes a pluggable provider behind a common parser interface.
-- Whether activities should become directly editable/deletable or stay derived from entries.
-- How strict confirm-time validation should become for each entry type.
+- Production activity archive/delete semantics.
+- Whether assistant conversation history should persist separately from confirmed entries.

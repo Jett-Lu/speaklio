@@ -2,7 +2,7 @@
 
 Scope: local full-product readiness, excluding hosted deployment/infrastructure and excluding the frontend rewrite.
 
-Last updated: 2026-06-23
+Last updated: 2026-07-18
 
 ## Goal
 
@@ -15,15 +15,17 @@ Define what is still needed for Speaklio to feel like a complete local app with 
   - Enable a plugin for the authenticated user.
   - Disable a plugin for the authenticated user.
   - List active plugins plus the user's enabled state.
-- Partly done: add activity timeline behavior:
+- Done: add activity timeline behavior:
   - Create activity rows when entries are created.
   - Deleting an entry deletes related activity through `metric_entry_id` cascade.
-  - Still decide whether activities are editable/deletable directly.
-- Partly done: improve `/entries`:
+  - Expose authenticated activity listing through `GET /activities`.
+  - Current decision: signed-in activities stay derived from entries; direct activity deletion/archive is future product work.
+- Done: improve `/entries`:
   - Add pagination beyond simple `limit`.
   - Add date range filters.
   - Add stronger domain-specific validation for common entry types.
-  - Still standardize error response shapes across all backend routes.
+  - Add `GET /entries/summary` for windowed rollups.
+- Remaining: standardize error response shapes across all backend routes.
 
 ## Local AI Flow
 
@@ -35,14 +37,14 @@ Define what is still needed for Speaklio to feel like a complete local app with 
 - Done: add confirm/save flow:
   - `POST /ai/confirm-actions`
   - Confirmed entries create matching activity rows.
-- Partly done: handle low-confidence or unsupported AI actions clearly.
+- Done: handle low-confidence or unsupported AI actions clearly.
   - Unsupported actions return preview items with `entry: null` and a reason.
-  - Still decide how the UI should handle low-confidence actions.
-- Add simple behavior for:
+  - Signed-in frontend uses backend previews by default and requires confirmation before writes.
+- Future: add richer conversational behavior for:
   - `request_tip`
   - `ask_dashboard_question`
   - `unknown`
-- Add tests for parser mapping without requiring Ollama.
+- Done: add tests for parser mapping without requiring Ollama.
 
 ## Data Model
 
@@ -78,15 +80,18 @@ Define what is still needed for Speaklio to feel like a complete local app with 
 
 ## Testing
 
-- Add backend unit tests for:
+- Done: add backend unit tests for:
   - Zod validation.
   - AI action mapping.
   - Entry payload mapping.
-- Add integration tests for:
+- Done: add route tests for:
   - `GET /me`
   - `PATCH /me/profile`
   - `/entries` CRUD
-  - AI unavailable behavior
+  - activity listing
+  - dashboard summary
+  - plugin enablement
+  - AI preview/confirm
 - Add RLS sanity checks.
 - Add tests that confirm one user cannot read/update/delete another user's rows.
 
@@ -111,8 +116,8 @@ Define what is still needed for Speaklio to feel like a complete local app with 
 
 ## Suggested Next Sequence
 
-1. Add backend tests for entry validation and AI action mapping.
-2. Add a backend smoke test script so manual verification is repeatable.
-3. Standardize error response shapes.
-4. Decide frontend behavior for low-confidence AI actions.
-5. Add simple `request_tip`, `ask_dashboard_question`, and `unknown` handling.
+1. Add a backend smoke test script so manual verification is repeatable.
+2. Standardize error response shapes.
+3. Add RLS sanity checks.
+4. Add simple `request_tip`, `ask_dashboard_question`, and `unknown` handling.
+5. Decide production activity archive/delete semantics.

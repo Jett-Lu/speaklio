@@ -15,9 +15,15 @@
               "log_workout",
               "log_calories",
               "log_food",
+              "log_expense",
+              "log_sleep",
+              "log_hydration",
+              "log_mindfulness",
               "request_macro_update",
               "request_tip",
               "ask_dashboard_question",
+              "update_last_entry",
+              "delete_last_entry",
               "unknown"
             ]
           },
@@ -177,6 +183,114 @@
           "calories": {
             "type": [
               "number",
+              "null"
+            ]
+          },
+          "protein": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "carbs": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "fats": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "fiber": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "nutrition_estimated": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "amount": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "currency": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "usd",
+              "cad",
+              null
+            ]
+          },
+          "category": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sleep_minutes": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "sleep_quality": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "Great",
+              "Good",
+              "Fair",
+              "Poor",
+              null
+            ]
+          },
+          "hydration_amount": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "hydration_unit": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "ml",
+              "l",
+              "oz",
+              null
+            ]
+          },
+          "mindfulness_minutes": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "mindfulness_title": {
+            "type": [
+              "string",
               "null"
             ]
           },

@@ -60,7 +60,7 @@ npm run frontend:dev
 
 The backend is an Express + TypeScript service for privileged workflows such as AI/LLM requests, account deletion, plugin settings, and operations that require secret keys.
 
-Current backend routes include health checks, profile routes, account deletion, plugin settings, authenticated metric entry CRUD, and local AI parse/preview/confirm endpoints.
+Current backend routes include health checks, profile routes, account deletion, plugin settings, authenticated metric entry CRUD, activity and dashboard read models, integration status metadata, and local AI parse/preview/confirm endpoints.
 
 Useful commands:
 

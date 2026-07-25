@@ -6,15 +6,66 @@ export const pluginsRouter = Router();
 
 const pluginSelect = "id, name, description, icon, is_active, created_at";
 
+const pluginMetadataById: Record<string, unknown> = {
+  nutrition: {
+    displayOrder: 10,
+    color: "nutrition",
+    entryTypes: ["log_food", "log_calories", "log_weight", "set_weight_goal"],
+    capabilities: ["manual-entry", "assistant-entry"],
+    scanner: { available: false, status: "coming-soon" },
+  },
+  finance: {
+    displayOrder: 20,
+    color: "finance",
+    entryTypes: ["log_expense"],
+    capabilities: ["manual-entry", "assistant-entry"],
+    categories: ["Dining", "Groceries", "Transport", "Bills", "Other"],
+  },
+  sleep: {
+    displayOrder: 30,
+    color: "sleep",
+    entryTypes: ["log_sleep"],
+    capabilities: ["manual-entry", "assistant-entry"],
+    qualityOptions: ["Great", "Good", "Fair", "Poor"],
+  },
+  workout: {
+    displayOrder: 40,
+    color: "workout",
+    entryTypes: ["log_workout"],
+    capabilities: ["manual-entry", "assistant-entry"],
+  },
+  hydration: {
+    displayOrder: 50,
+    color: "hydration",
+    entryTypes: ["log_hydration"],
+    capabilities: ["manual-entry", "assistant-entry"],
+    presetsMl: [250, 500, 750],
+  },
+  mindfulness: {
+    displayOrder: 60,
+    color: "mindfulness",
+    entryTypes: ["log_mindfulness"],
+    capabilities: ["manual-entry", "assistant-entry"],
+    presetsMinutes: [5, 10, 15],
+  },
+};
+
 function toPluginResponse(plugin: Record<string, unknown>, enabled: boolean) {
+  const id = String(plugin.id);
   return {
-    id: plugin.id,
+    id,
     name: plugin.name,
     description: plugin.description,
     icon: plugin.icon,
     isActive: plugin.is_active,
     createdAt: plugin.created_at,
     enabled,
+    ui: pluginMetadataById[id] ?? {
+      displayOrder: 999,
+      color: id,
+      entryTypes: [],
+      capabilities: [],
+    },
   };
 }
 
