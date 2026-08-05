@@ -2,6 +2,8 @@
 
 Speaklio is a voice-first personal care dashboard for turning natural language into structured updates across modular tracking areas.
 
+<img width="400" height="865" alt="Recording_2026-06-01_203610" src="https://github.com/user-attachments/assets/6263205d-68af-460b-b2ff-9d56726a2dec" />
+
 This repository is organized as a small capstone monorepo. The current frontend is a static prototype, the backend is an Express + TypeScript scaffold, and Supabase provides auth/database infrastructure.
 
 Use Node.js 24 or newer for local development.
