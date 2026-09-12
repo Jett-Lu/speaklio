@@ -1,5 +1,8 @@
 # Speaklio
 
+<img width="400" height="865" alt="Recording_2026-06-01_203610" src="https://github.com/user-attachments/assets/dfbc111d-66d1-4e48-a813-d472c35c715e" />
+
+
 Speaklio is a browser-local personal tracking dashboard for meals, expenses, sleep, workouts, hydration, and mindful moments. Use the plugin forms or type supported logging requests into the local assistant.
 
 ## Run locally
