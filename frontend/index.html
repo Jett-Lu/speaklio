@@ -17,61 +17,6 @@
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <main class="auth-screen" id="auth-screen" aria-label="Sign in to Speaklio">
-      <section class="auth-card">
-        <div class="auth-brand">
-          <div class="brand-mark" aria-hidden="true">
-            <svg viewBox="0 0 40 40" fill="none">
-              <path d="M20 7.5c-7 0-12 4.55-12 10.5 0 3.36 1.67 6.32 4.35 8.24L11 31.8l5.64-3.24c1.07.28 2.2.44 3.36.44 7 0 12-4.55 12-10.5S27 7.5 20 7.5Z" fill="currentColor"/>
-              <path d="M15.2 19.5h9.6M17.4 15.8h5.2M17.4 23.2h5.2" stroke="white" stroke-width="2" stroke-linecap="round"/>
-            </svg>
-          </div>
-          <span>Speaklio</span>
-        </div>
-        <div class="auth-copy">
-          <p class="eyebrow">WELCOME BACK</p>
-          <h1>Sign in to Speaklio</h1>
-          <p>Enter your email to continue.</p>
-        </div>
-        <form class="auth-form" id="login-form">
-          <label for="login-email">Email</label>
-          <input id="login-email" name="email" type="email" autocomplete="email" required />
-          <button class="primary-button" type="submit">Send code</button>
-        </form>
-        <section class="otp-panel" id="otp-panel" hidden>
-          <p id="auth-status">Check Mailpit for your sign-in code.</p>
-          <form class="auth-form" id="otp-form">
-            <label for="login-code">Code</label>
-            <input id="login-code" name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" required />
-            <button class="primary-button" type="submit">Verify code</button>
-          </form>
-        </section>
-        <div class="auth-actions">
-          <button class="text-button" type="button" data-auth-action="start-setup">Create a new account</button>
-        </div>
-        <section class="account-setup-panel" id="account-setup-panel" hidden>
-          <div class="section-title-row compact">
-            <div>
-              <p class="eyebrow">NEW ACCOUNT</p>
-              <h2>Set up your plan</h2>
-            </div>
-            <button class="text-button" type="button" data-auth-action="back-to-login">Back</button>
-          </div>
-          <form class="quick-form account-setup-form" data-form="account-setup">
-            <div class="form-grid">
-              <label>Name<input required name="name" autocomplete="name" /></label>
-              <label>Email<input required name="email" type="email" autocomplete="email" /></label>
-              <label>Age<input required name="age" type="number" min="13" max="120" /></label>
-              <label>Activity level<select name="activityLevel"><option value="light">Light</option><option value="moderate" selected>Moderate</option><option value="active">Active</option><option value="athlete">Athlete</option></select></label>
-              <label>Height (cm)<input required name="heightCm" type="number" min="100" max="240" /></label>
-              <label>Weight (kg)<input required name="weightKg" type="number" min="30" max="250" step="0.1" /></label>
-            </div>
-            <label>Primary goal<select name="primaryGoal"><option value="maintain">Maintain weight</option><option value="lose">Lose fat</option><option value="gain">Build muscle</option><option value="performance">Improve performance</option></select></label>
-            <button class="primary-button" type="submit">Create my plan</button>
-          </form>
-        </section>
-      </section>
-    </main>
 
     <div class="app-shell">
       <aside class="sidebar">
@@ -116,9 +61,6 @@
             <button class="icon-button" aria-label="Settings" data-profile-action="preferences">
               <span class="icon" data-icon="settings"></span>
             </button>
-            <button class="icon-button" aria-label="Sign out" data-auth-action="sign-out">
-              <span class="icon" data-icon="log-out"></span>
-            </button>
           </div>
         </div>
       </aside>
@@ -137,13 +79,6 @@
           <button class="avatar avatar-button" aria-label="Open profile" data-view-trigger="profile">SP</button>
         </header>
 
-        <section class="backend-status" id="backend-status" hidden>
-          <div>
-            <strong>Unable to refresh backend data</strong>
-            <span id="backend-status-copy">Your session is still saved. Try again when the local API is running.</span>
-          </div>
-          <button class="secondary-button" type="button" data-backend-action="retry">Retry</button>
-        </section>
 
         <section class="view active" id="home-view">
           <header class="page-heading home-heading">
@@ -494,7 +429,7 @@
             <div class="large-avatar">SP</div>
             <div>
               <h2 id="profile-name">Speaklio</h2>
-              <p id="profile-email">Signed in account</p>
+              <p id="profile-email">Saved in this browser</p>
             </div>
             <button class="quiet-button" data-profile-action="edit">Edit profile</button>
           </section>
@@ -582,11 +517,6 @@
               <span><strong>Preferences</strong><small>Customize your dashboard</small></span>
               <span class="icon" data-icon="chevron-right"></span>
             </button>
-            <button data-auth-action="sign-out">
-              <span class="setting-icon"><span class="icon" data-icon="log-out"></span></span>
-              <span><strong>Sign out</strong><small>Return to the Speaklio sign-in screen</small></span>
-              <span class="icon" data-icon="chevron-right"></span>
-            </button>
           </section>
         </section>
       </main>
@@ -594,7 +524,7 @@
       <aside class="assistant-panel" id="assistant-panel" aria-label="Speaklio assistant">
         <header class="assistant-header">
           <div>
-            <p class="eyebrow">AI ASSISTANT</p>
+            <p class="eyebrow">LOCAL ASSISTANT</p>
             <h2>Ask Speaklio</h2>
           </div>
           <button class="icon-button assistant-close" id="close-assistant" aria-label="Close assistant">
@@ -605,19 +535,7 @@
           <span class="status-dot"></span>
           <span>Ready to help</span>
         </div>
-        <section class="assistant-preview" id="assistant-preview" aria-label="Assistant action preview">
-          <div class="assistant-preview-header">
-            <p class="eyebrow">PREVIEW</p>
-            <span>Review queue</span>
-          </div>
-          <strong id="assistant-preview-title">No pending action</strong>
-          <p id="assistant-preview-copy">Ask Speaklio to log something and this panel will prepare a structured update for your review.</p>
-          <div class="assistant-preview-actions">
-            <button class="secondary-button" type="button" data-assistant-action="cancel">Cancel</button>
-            <button class="secondary-button" type="button" data-assistant-action="edit">Edit</button>
-            <button class="primary-button" type="button" data-assistant-action="confirm">Confirm</button>
-          </div>
-        </section>
+        <p class="local-mode-note">Saved in this browser. Recognized logging requests save immediately. Use plugin forms for precise values.</p>
         <div class="chat-stream" id="chat-stream">
           <div class="chat-day">TODAY</div>
           <div class="chat-bubble assistant">
@@ -635,8 +553,8 @@
           </div>
         </div>
         <form class="assistant-composer" id="assistant-form">
-          <label class="sr-only" for="assistant-input">Ask Speaklio anything</label>
-          <input id="assistant-input" type="text" placeholder="Ask Speaklio anything..." autocomplete="off" />
+          <label class="sr-only" for="assistant-input">Ask Speaklio to log or summarize</label>
+          <input id="assistant-input" type="text" placeholder="Ask Speaklio to log or summarize..." autocomplete="off" />
           <button type="button" class="mic-button" id="mic-button" aria-label="Start voice input">
             <span class="icon" data-icon="mic"></span>
           </button>
@@ -648,7 +566,7 @@
 
       <button class="mobile-assistant-dock" id="open-assistant">
         <span class="dock-spark"><span class="icon" data-icon="sparkles"></span></span>
-        <span>Ask Speaklio anything...</span>
+        <span>Ask Speaklio to log or summarize...</span>
         <span class="dock-mic"><span class="icon" data-icon="mic"></span></span>
       </button>
 
@@ -687,7 +605,6 @@
       <div class="toast" id="toast" role="status" aria-live="polite"></div>
       <div class="overlay" id="overlay"></div>
     </div>
-    <script src="config.js"></script>
-    <script src="app.js"></script>
+    <script type="module" src="app.js"></script>
   </body>
 </html>

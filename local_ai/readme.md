@@ -1,3 +1,5 @@
+> Historical reference: this document describes the retired backend-connected prototype. The standalone frontend does not use these services. See the root README for current setup.
+
 # Speaklio Local AI
 
 This directory contains the local Ollama parser setup for AI-assisted logging.

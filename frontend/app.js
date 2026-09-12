@@ -1,231 +1,7 @@
-const STORAGE_KEY = "speaklio-state-v3";
-const SESSION_KEY = "speaklio-auth-session-v1";
-const config = window.SPEAKLIO_CONFIG || {};
-const API_BASE_URL = config.API_BASE_URL || "http://localhost:3000";
-const SUPABASE_URL = config.SUPABASE_URL || "http://127.0.0.1:54321";
-const SUPABASE_PUBLISHABLE_KEY = config.SUPABASE_PUBLISHABLE_KEY || "";
-const ASSISTANT_REGEX_FALLBACK_ENABLED = config.ENABLE_ASSISTANT_REGEX_FALLBACK === true || config.ENABLE_ASSISTANT_REGEX_FALLBACK === "true";
-
-let authSession = loadSession();
-
-const iconPaths = {
-  home: '<path d="M3 10.5 10 4l7 6.5"/><path d="M5 9.5V17h10V9.5"/><path d="M8.5 17v-5h3v5"/>',
-  clock: '<circle cx="10" cy="10" r="7"/><path d="M10 6v4l2.8 1.8"/>',
-  grid: '<rect x="3" y="3" width="5.5" height="5.5" rx="1"/><rect x="11.5" y="3" width="5.5" height="5.5" rx="1"/><rect x="3" y="11.5" width="5.5" height="5.5" rx="1"/><rect x="11.5" y="11.5" width="5.5" height="5.5" rx="1"/>',
-  user: '<circle cx="10" cy="7" r="3"/><path d="M4 17c.7-2.7 2.7-4 6-4s5.3 1.3 6 4"/>',
-  settings: '<circle cx="10" cy="10" r="2.7"/><path d="M17 10c0-.36-.03-.71-.08-1.05l1.44-1.12-1.6-2.77-1.72.7a6.7 6.7 0 0 0-1.84-1.06L12.95 2h-5.9L6.8 4.7a6.7 6.7 0 0 0-1.84 1.06l-1.72-.7-1.6 2.77 1.44 1.12A7.4 7.4 0 0 0 3 10c0 .36.03.71.08 1.05l-1.44 1.12 1.6 2.77 1.72-.7a6.7 6.7 0 0 0 1.84 1.06l.25 2.7h5.9l.25-2.7a6.7 6.7 0 0 0 1.84-1.06l1.72.7 1.6-2.77-1.44-1.12c.05-.34.08-.69.08-1.05Z"/>',
-  calendar: '<rect x="3" y="4.5" width="14" height="12.5" rx="2"/><path d="M6.5 3v3M13.5 3v3M3 8h14"/>',
-  "chevron-down": '<path d="m6 8 4 4 4-4"/>',
-  "chevron-right": '<path d="m8 5 5 5-5 5"/>',
-  apple: '<path d="M10 7c-1.5-1.5-4-1.4-5.2.4C2.5 10.8 5.7 16.7 8 17c1 .1 1.2-.5 2-.5s1 .6 2 .5c2.3-.3 5.5-6.2 3.2-9.6C14 5.6 11.5 5.5 10 7Z"/><path d="M10 6c.1-1.7 1.1-2.7 3-3"/>',
-  wallet: '<path d="M3 6.5h13a1 1 0 0 1 1 1V15a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"/><path d="M13 11.5h4"/><circle cx="13" cy="11.5" r=".6"/>',
-  moon: '<path d="M16.5 12.4A6.8 6.8 0 0 1 7.6 3.5 6.8 6.8 0 1 0 16.5 12.4Z"/>',
-  bolt: '<path d="m11.5 2-7 10h5l-1 6 7-10h-5l1-6Z"/>',
-  "arrow-right": '<path d="M4 10h12M12 6l4 4-4 4"/>',
-  "arrow-up": '<path d="M10 16V4M6 8l4-4 4 4"/>',
-  sparkles: '<path d="m10 2 1.3 4.7L16 8l-4.7 1.3L10 14l-1.3-4.7L4 8l4.7-1.3L10 2Z"/><path d="m16.5 13 .5 1.5 1.5.5-1.5.5-.5 1.5-.5-1.5-1.5-.5 1.5-.5.5-1.5ZM3.5 13l.5 1.5 1.5.5-1.5.5-.5 1.5-.5-1.5-1.5-.5 1.5-.5.5-1.5Z"/>',
-  mic: '<path d="M10 13a3 3 0 0 0 3-3V6a3 3 0 1 0-6 0v4a3 3 0 0 0 3 3Z"/><path d="M5 10a5 5 0 0 0 10 0M10 15v3M7 18h6"/>',
-  x: '<path d="M5 5l10 10M15 5 5 15"/>',
-  bell: '<path d="M15 8a5 5 0 0 0-10 0c0 6-2 6-2 7h14c0-1-2-1-2-7M8 18h4"/>',
-  shield: '<path d="M10 18s6-2.6 6-8V5l-6-2-6 2v5c0 5.4 6 8 6 8Z"/><path d="m7.5 10 1.7 1.7 3.4-3.4"/>',
-  droplet: '<path d="M10 2.5s5 5.3 5 9a5 5 0 0 1-10 0c0-3.7 5-9 5-9Z"/>',
-  heart: '<path d="M10 17s-6-3.6-6-8a3.5 3.5 0 0 1 6-2.4A3.5 3.5 0 0 1 16 9c0 4.4-6 8-6 8Z"/>',
-  camera: '<path d="M6.5 6.5 8 4.5h4l1.5 2H16a2 2 0 0 1 2 2V15a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8.5a2 2 0 0 1 2-2h2.5Z"/><circle cx="10" cy="11.5" r="3"/>',
-  watch: '<rect x="6" y="5" width="8" height="10" rx="3"/><path d="M8 5 8.5 2.5h3L12 5M8 15l.5 2.5h3L12 15"/><path d="M9 10.5h2"/>',
-  link: '<path d="M8.2 12.4 7 13.6a3 3 0 0 1-4.2-4.2L4 8.2"/><path d="m11.8 7.6 1.2-1.2a3 3 0 0 1 4.2 4.2L16 11.8"/><path d="m7.5 12.5 5-5"/>',
-  "log-out": '<path d="M8 4H5a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h3"/><path d="M12 6l4 4-4 4M16 10H7"/>',
-};
-
-let plugins = [
-  { id: "nutrition", name: "Nutrition", icon: "apple", description: "Track meals, calories, and daily macros." },
-  { id: "finance", name: "Finance", icon: "wallet", description: "Log expenses and keep an eye on your budget." },
-  { id: "sleep", name: "Sleep", icon: "moon", description: "Understand your rest and sleep patterns." },
-  { id: "workout", name: "Workout", icon: "bolt", description: "Plan sessions and follow your weekly progress." },
-  { id: "hydration", name: "Hydration", icon: "droplet", description: "Stay consistent with your daily water goal." },
-  { id: "mindfulness", name: "Mindfulness", icon: "heart", description: "Make space for calm moments in your day." },
-];
-
-let pluginUiConfig = {
-  finance: {
-    categories: ["Dining", "Groceries", "Transport", "Bills", "Other"],
-  },
-  sleep: {
-    qualityOptions: ["Great", "Good", "Fair", "Poor"],
-  },
-  hydration: {
-    presetsMl: [250, 500, 750],
-  },
-  mindfulness: {
-    presetsMinutes: [5, 10, 15],
-  },
-};
-
-let integrationCatalog = {
-  "apple-health": {
-    name: "Apple Health",
-    icon: "watch",
-    color: "workout",
-    panelCopy: "Steps, workouts, heart rate, sleep, and mindful minutes.",
-    detailCopy: "Apple Health sync is not connected yet. Speaklio needs a native app or HealthKit bridge before these permissions can be requested.",
-    permissions: {
-      read: "Steps, workouts, heart rate, sleep, active energy, mindful minutes.",
-      write: "Nutrition summaries, water, workouts, and mindful moments when enabled.",
-    },
-  },
-  "apple-watch": {
-    name: "Apple Watch",
-    icon: "link",
-    color: "hydration",
-    panelCopy: "Activity rings and workout recovery through Apple Health.",
-    detailCopy: "Apple Watch data will flow through Apple Health once native HealthKit sync exists.",
-    permissions: {
-      read: "Activity rings, workouts, heart rate, sleep, recovery signals.",
-      write: "No direct Watch writes planned for this prototype.",
-    },
-  },
-};
-
-let pluginMap = Object.fromEntries(plugins.map((plugin) => [plugin.id, plugin]));
-
-function firstName(name) {
-  return String(name || "there").trim().split(/\s+/)[0] || "there";
-}
-
-function starterChatText(name) {
-  return `Hi ${firstName(name)}. Tell me what you ate, spent, drank, or want to plan.`;
-}
-
-function syncStarterChatGreeting(targetState) {
-  const starterPattern = /^Hi .+\. Tell me what you ate, spent, drank, or want to plan\.$/;
-  const firstChat = targetState.chats?.[0];
-  if (firstChat?.sender === "assistant" && starterPattern.test(firstChat.text)) {
-    firstChat.text = starterChatText(targetState.profile.name);
-  }
-}
-
-function defaultProfileSettings() {
-  return {
-    name: "there",
-    email: "",
-    timezone: "America/Toronto",
-    units: "Metric",
-    notifications: true,
-    weeklySummary: true,
-    assistantInsights: true,
-    compactCards: false,
-    planPersonalized: false,
-    monthlyBudget: 2000,
-    personal: {
-      age: 29,
-      heightCm: 178,
-      weightKg: 78,
-      activityLevel: "moderate",
-    },
-    goals: {
-      primaryGoal: "maintain",
-      targetWeightKg: 75,
-      calorieGoal: 2100,
-      proteinGoal: 120,
-      hydrationGoal: 2700,
-      weeklyWorkouts: 4,
-    },
-  };
-}
-
-function emptyDashboardState(profile = defaultProfileSettings()) {
-  return {
-    nutrition: { calories: 0, goal: profile.goals.calorieGoal, protein: 0, carbs: 0, fats: 0, fiber: 0 },
-    finance: { spending: 0, budget: profile.monthlyBudget },
-    sleep: { minutes: 0, quality: "Not logged", week: [0, 0, 0, 0, 0, 0, 0] },
-    workout: { title: "No workout planned", time: "Not scheduled", duration: 0, completed: 0, goal: profile.goals.weeklyWorkouts },
-    hydration: { ml: 0, goal: profile.goals.hydrationGoal },
-    mindfulness: { count: 0, title: "Mindful moment", duration: 10 },
-    dashboardInsights: null,
-  };
-}
-
-function localUiDefaults(profile = defaultProfileSettings()) {
-  return {
-    installedPlugins: new Set(),
-    currentView: "home",
-    activityFilter: "all",
-    activitySearch: "",
-    activities: [],
-    lastAssistantEntries: [],
-    chats: [
-      { sender: "assistant", text: starterChatText(profile.name) },
-    ],
-  };
-}
-
-function makeDefaultState() {
-  const profile = defaultProfileSettings();
-  return {
-    authenticated: Boolean(authSession?.access_token),
-    profile,
-    ...emptyDashboardState(profile),
-    ...localUiDefaults(profile),
-  };
-}
-
-function localUiState(saved, defaults) {
-  return {
-    currentView: typeof saved?.currentView === "string" ? saved.currentView : defaults.currentView,
-    activityFilter: typeof saved?.activityFilter === "string" ? saved.activityFilter : defaults.activityFilter,
-    activitySearch: typeof saved?.activitySearch === "string" ? saved.activitySearch : defaults.activitySearch,
-    lastAssistantEntries: Array.isArray(saved?.lastAssistantEntries) ? saved.lastAssistantEntries : defaults.lastAssistantEntries,
-    chats: Array.isArray(saved?.chats) && saved.chats.length ? saved.chats : defaults.chats,
-  };
-}
-
-function loadLocalUiState(defaults, saved) {
-  return {
-    ...defaults,
-    ...localUiState(saved, defaults),
-  };
-}
-
-function loadSignedOutState(defaults, saved) {
-  return {
-    ...defaults,
-    ...saved,
-    authenticated: false,
-    profile: {
-      ...defaults.profile,
-      ...saved.profile,
-      personal: { ...defaults.profile.personal, ...saved.profile?.personal },
-      goals: { ...defaults.profile.goals, ...saved.profile?.goals },
-    },
-    nutrition: { ...defaults.nutrition, ...saved.nutrition },
-    finance: { ...defaults.finance, ...saved.finance },
-    sleep: { ...defaults.sleep, ...saved.sleep },
-    workout: { ...defaults.workout, ...saved.workout },
-    hydration: { ...defaults.hydration, ...saved.hydration },
-    mindfulness: { ...defaults.mindfulness, ...saved.mindfulness },
-    installedPlugins: new Set(saved.installedPlugins || [...defaults.installedPlugins]),
-    ...localUiState(saved, defaults),
-    activities: Array.isArray(saved.activities) ? saved.activities : defaults.activities,
-  };
-}
-
-function loadLocalState() {
-  const defaults = makeDefaultState();
-  try {
-    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
-    if (!saved) return defaults;
-
-    if (authSession?.access_token) {
-      return loadLocalUiState(defaults, saved);
-    }
-
-    return loadSignedOutState(defaults, saved);
-  } catch {
-    return defaults;
-  }
-}
-
-let state = loadLocalState();
-syncStarterChatGreeting(state);
+import { iconPaths, plugins, pluginMap, pluginUiConfig, integrationCatalog } from "./catalog.mjs";
+import { state, saveLocalState, resetState, serializeState } from "./state.mjs";
+import { escapeHtml, clamp, percentOf, formatMoney, formatMinutes, formatWeight, formatGoalLabel, formatActivityLabel, getTailoredGoals, initials } from "./format.mjs";
+import { createAssistant } from "./assistant.mjs";
 
 const views = document.querySelectorAll(".view");
 const navButtons = document.querySelectorAll(".nav-item");
@@ -240,71 +16,6 @@ const modalEyebrow = document.getElementById("modal-eyebrow");
 const modalTitle = document.getElementById("modal-title");
 const modalBody = document.getElementById("modal-body");
 const activitySearch = document.getElementById("activity-search");
-const assistantPreviewTitle = document.getElementById("assistant-preview-title");
-const assistantPreviewCopy = document.getElementById("assistant-preview-copy");
-const backendStatus = document.getElementById("backend-status");
-const backendStatusCopy = document.getElementById("backend-status-copy");
-let pendingAssistantPreview = null;
-let backendLoading = false;
-const loginForm = document.getElementById("login-form");
-const loginEmail = document.getElementById("login-email");
-const otpPanel = document.getElementById("otp-panel");
-const otpForm = document.getElementById("otp-form");
-const loginCode = document.getElementById("login-code");
-const authStatus = document.getElementById("auth-status");
-const accountSetupPanel = document.getElementById("account-setup-panel");
-
-function escapeHtml(value) {
-  return String(value)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-}
-
-function clamp(value, minimum = 0, maximum = 100) {
-  return Math.min(maximum, Math.max(minimum, value));
-}
-
-function percentOf(value, total) {
-  const denominator = Number(total);
-  if (!Number.isFinite(denominator) || denominator <= 0) return 0;
-  return clamp((Number(value) || 0) / denominator * 100);
-}
-
-function formatMoney(value) {
-  return Number(value).toLocaleString(undefined, { minimumFractionDigits: value % 1 ? 2 : 0, maximumFractionDigits: 2 });
-}
-
-function formatMinutes(minutes) {
-  const rounded = Math.max(0, Math.round(minutes));
-  return `${Math.floor(rounded / 60)}h ${rounded % 60}m`;
-}
-
-function formatWeight(kg) {
-  return `${Number(kg).toFixed(Number(kg) % 1 ? 1 : 0)} kg`;
-}
-
-function formatGoalLabel(goal) {
-  const labels = {
-    maintain: "Maintain",
-    lose: "Lose fat",
-    gain: "Build muscle",
-    performance: "Performance",
-  };
-  return labels[goal] || "Maintain";
-}
-
-function formatActivityLabel(activityLevel) {
-  const labels = {
-    light: "Light activity",
-    moderate: "Moderate activity",
-    active: "Active routine",
-    athlete: "Athlete mode",
-  };
-  return labels[activityLevel] || "Moderate activity";
-}
 
 function optionMarkup(value, label, selectedValue) {
   return `<option value="${escapeHtml(value)}" ${value === selectedValue ? "selected" : ""}>${escapeHtml(label)}</option>`;
@@ -318,23 +29,6 @@ function presetButtons(values, action, formatter) {
   return values
     .map((value) => `<button class="preset-button" data-modal-action="${escapeHtml(action)}" data-amount="${value}">${escapeHtml(formatter(value))}</button>`)
     .join("");
-}
-
-function setIntegrationCatalog(integrations) {
-  if (!Array.isArray(integrations)) return;
-  integrationCatalog = integrations.reduce((catalog, integration) => {
-    const id = String(integration.id || "");
-    if (!id) return catalog;
-    catalog[id] = {
-      ...(catalog[id] || {}),
-      ...integration,
-      permissions: {
-        ...(catalog[id]?.permissions || {}),
-        ...(integration.permissions && typeof integration.permissions === "object" ? integration.permissions : {}),
-      },
-    };
-    return catalog;
-  }, { ...integrationCatalog });
 }
 
 function integrationCardMarkup(integrationId) {
@@ -355,32 +49,7 @@ function integrationCardMarkup(integrationId) {
 }
 
 function accountEmailField() {
-  if (!state.authenticated) {
-    return `<label>Email<input required name="email" type="email" value="${escapeHtml(state.profile.email)}" /></label>`;
-  }
-
-  return `
-    <label>Email<input name="email" type="email" value="${escapeHtml(state.profile.email)}" readonly aria-describedby="account-email-note" /></label>
-    <p class="field-note" id="account-email-note">This is your sign-in email. Email change confirmation is not available yet.</p>
-  `;
-}
-
-function getTailoredGoals({ weightKg, primaryGoal, activityLevel }) {
-  const activityMultipliers = { light: 28, moderate: 31, active: 34, athlete: 38 };
-  const goalAdjustments = { lose: -350, maintain: 0, gain: 250, performance: 150 };
-  const calories = Math.round(((Number(weightKg) || 78) * (activityMultipliers[activityLevel] || 31) + (goalAdjustments[primaryGoal] || 0)) / 50) * 50;
-  const proteinMultiplier = primaryGoal === "gain" || primaryGoal === "performance" ? 1.9 : primaryGoal === "lose" ? 1.8 : 1.6;
-  const weeklyWorkouts = activityLevel === "athlete" ? 5 : activityLevel === "active" ? 4 : primaryGoal === "performance" ? 4 : 3;
-  return {
-    calorieGoal: clamp(calories, 1400, 4200),
-    proteinGoal: Math.round((Number(weightKg) || 78) * proteinMultiplier),
-    hydrationGoal: Math.round(((Number(weightKg) || 78) * 35) / 50) * 50,
-    weeklyWorkouts,
-  };
-}
-
-function initials(name) {
-  return String(name).split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase() || "SP";
+  return `<label>Email (optional)<input name="email" type="email" value="${escapeHtml(state.profile.email)}" /></label>`;
 }
 
 function iconMarkup(name) {
@@ -393,550 +62,11 @@ function installStaticIcons() {
   });
 }
 
-function loadSession() {
-  try {
-    return JSON.parse(localStorage.getItem(SESSION_KEY));
-  } catch {
-    return null;
-  }
-}
-
-function saveSession(session) {
-  authSession = session;
-  if (session?.access_token) {
-    localStorage.setItem(SESSION_KEY, JSON.stringify(session));
-  } else {
-    localStorage.removeItem(SESSION_KEY);
-  }
-}
-
-function authHeaders() {
-  return {
-    apikey: SUPABASE_PUBLISHABLE_KEY,
-    Authorization: `Bearer ${SUPABASE_PUBLISHABLE_KEY}`,
-    "Content-Type": "application/json",
-  };
-}
-
-function apiHeaders() {
-  return {
-    Authorization: `Bearer ${authSession?.access_token || ""}`,
-    "Content-Type": "application/json",
-  };
-}
-
-async function parseJsonResponse(response) {
-  const text = await response.text();
-  const payload = text ? JSON.parse(text) : null;
-  if (!response.ok) {
-    throw new Error(payload?.error_description || payload?.error || payload?.message || "Request failed");
-  }
-  return payload;
-}
-
-async function requestOtp(email) {
-  if (!SUPABASE_PUBLISHABLE_KEY) {
-    throw new Error("Missing Supabase publishable key. Restart the frontend server after local Supabase is running.");
-  }
-
-  const response = await fetch(`${SUPABASE_URL}/auth/v1/otp`, {
-    method: "POST",
-    headers: authHeaders(),
-    body: JSON.stringify({
-      email,
-      create_user: true,
-      data: { display_name: state.profile.name },
-    }),
-  });
-  await parseJsonResponse(response);
-}
-
-async function verifyOtp(email, token) {
-  const response = await fetch(`${SUPABASE_URL}/auth/v1/verify`, {
-    method: "POST",
-    headers: authHeaders(),
-    body: JSON.stringify({ email, token, type: "email" }),
-  });
-  return parseJsonResponse(response);
-}
-
-async function refreshAuthSession() {
-  if (!authSession?.refresh_token) return false;
-
-  try {
-    const response = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
-      method: "POST",
-      headers: authHeaders(),
-      body: JSON.stringify({ refresh_token: authSession.refresh_token }),
-    });
-
-    if (!response.ok) return false;
-    const session = await parseJsonResponse(response);
-    saveSession(session);
-    return Boolean(session?.access_token);
-  } catch {
-    return false;
-  }
-}
-
-async function apiRequest(path, options = {}) {
-  if (!authSession?.access_token) throw new Error("Please sign in first.");
-  const requestOptions = () => ({
-    ...options,
-    headers: {
-      ...apiHeaders(),
-      ...(options.headers || {}),
-    },
-  });
-  let response = await fetch(`${API_BASE_URL}${path}`, requestOptions());
-  if (response.status === 401 && await refreshAuthSession()) {
-    response = await fetch(`${API_BASE_URL}${path}`, requestOptions());
-  }
-  return parseJsonResponse(response);
-}
-
-const apiClient = {
-  me: () => apiRequest("/me"),
-  plugins: () => apiRequest("/plugins"),
-  integrations: () => apiRequest("/integrations"),
-  dashboardSummary: () => apiRequest("/dashboard/summary"),
-  activities: ({ limit = 100 } = {}) => apiRequest(`/activities?limit=${encodeURIComponent(limit)}`),
-  createEntry: (entry) => apiRequest("/entries", {
-    method: "POST",
-    body: JSON.stringify(entry),
-  }),
-  updateEntry: (entryId, patch) => apiRequest(`/entries/${encodeURIComponent(entryId)}`, {
-    method: "PATCH",
-    body: JSON.stringify(patch),
-  }),
-  deleteEntry: (entryId) => apiRequest(`/entries/${encodeURIComponent(entryId)}`, {
-    method: "DELETE",
-  }),
-  updateProfile: (profile) => apiRequest("/me/profile", {
-    method: "PATCH",
-    body: JSON.stringify(profile),
-  }),
-  previewAssistantEntry: (text) => apiRequest("/ai/preview-entry", {
-    method: "POST",
-    body: JSON.stringify({ text }),
-  }),
-  confirmAssistantActions: (entries) => apiRequest("/ai/confirm-actions", {
-    method: "POST",
-    body: JSON.stringify({ entries }),
-  }),
-  setPluginEnabled: (pluginId, enabled) => apiRequest(`/plugins/${encodeURIComponent(pluginId)}/enable`, {
-    method: enabled ? "PUT" : "DELETE",
-  }),
-};
-
-function setPluginCatalog(nextPlugins) {
-  if (!Array.isArray(nextPlugins) || nextPlugins.length === 0) return;
-  plugins = nextPlugins.map((plugin) => {
-    const pluginId = String(plugin.id);
-    const uiConfig = plugin.ui && typeof plugin.ui === "object" ? plugin.ui : {};
-    pluginUiConfig = {
-      ...pluginUiConfig,
-      [pluginId]: {
-        ...(pluginUiConfig[pluginId] || {}),
-        ...uiConfig,
-      },
-    };
-    return {
-      id: pluginId,
-      name: String(plugin.name),
-      icon: String(plugin.icon || "sparkles"),
-      description: String(plugin.description || ""),
-      enabled: Boolean(plugin.enabled),
-      displayOrder: Number(uiConfig.displayOrder || 999),
-      ui: uiConfig,
-    };
-  }).sort((a, b) => a.displayOrder - b.displayOrder || a.name.localeCompare(b.name));
-  pluginMap = Object.fromEntries(plugins.map((plugin) => [plugin.id, plugin]));
-}
-
-function formatEntryDay(value) {
-  const date = new Date(value);
-  const today = new Date();
-  const yesterday = new Date();
-  yesterday.setDate(today.getDate() - 1);
-  if (date.toDateString() === today.toDateString()) return "Today";
-  if (date.toDateString() === yesterday.toDateString()) return "Yesterday";
-  return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-}
-
-function formatEntryTime(value) {
-  const date = new Date(value);
-  return date.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
-}
-
-function isSameDay(value, date = new Date()) {
-  return new Date(value).toDateString() === date.toDateString();
-}
-
-function isSameMonth(value, date = new Date()) {
-  const entryDate = new Date(value);
-  return entryDate.getMonth() === date.getMonth() && entryDate.getFullYear() === date.getFullYear();
-}
-
-function isThisWeek(value) {
-  const entryDate = new Date(value);
-  const now = new Date();
-  const weekStart = new Date(now);
-  weekStart.setDate(now.getDate() - now.getDay());
-  weekStart.setHours(0, 0, 0, 0);
-  return entryDate >= weekStart && entryDate <= now;
-}
-
-function entryToActivity(entry) {
-  const metadata = entry.metadata && typeof entry.metadata === "object" ? entry.metadata : {};
-  const pluginId = entry.pluginId || "speaklio";
-  const entryType = String(entry.entryType || "entry");
-
-  if (entryType === "log_food") {
-    const food = metadata.food || "food";
-    return {
-      id: entry.id,
-      plugin: pluginId,
-      title: `Logged ${food}`,
-      detail: `${metadata.meal || "Meal"}${metadata.calories ? ` - ${metadata.calories} cal` : ""}`,
-      day: formatEntryDay(entry.occurredAt),
-      time: formatEntryTime(entry.occurredAt),
-    };
-  }
-
-  if (entryType === "log_expense") {
-    return {
-      id: entry.id,
-      plugin: pluginId,
-      title: `Added ${metadata.note || metadata.category || "expense"}`,
-      detail: `${metadata.category || "Expense"} - $${Number(entry.value || 0).toFixed(2)}`,
-      day: formatEntryDay(entry.occurredAt),
-      time: formatEntryTime(entry.occurredAt),
-    };
-  }
-
-  if (entryType === "log_hydration") {
-    return {
-      id: entry.id,
-      plugin: pluginId,
-      title: "Added water",
-      detail: `${Number(entry.value || 0)} ${entry.unit || "ml"}`,
-      day: formatEntryDay(entry.occurredAt),
-      time: formatEntryTime(entry.occurredAt),
-    };
-  }
-
-  if (entryType === "log_sleep") {
-    return {
-      id: entry.id,
-      plugin: pluginId,
-      title: "Updated sleep summary",
-      detail: `${formatMinutes(Number(entry.value || 0))} - ${metadata.quality || "Logged"} quality`,
-      day: formatEntryDay(entry.occurredAt),
-      time: formatEntryTime(entry.occurredAt),
-    };
-  }
-
-  if (entryType === "log_workout") {
-    const exercise = metadata.exercise || metadata.title || "workout";
-    return {
-      id: entry.id,
-      plugin: pluginId,
-      title: `Logged ${exercise}`,
-      detail: [metadata.sets ? `${metadata.sets} sets` : null, metadata.duration ? `${metadata.duration} min` : null].filter(Boolean).join(" - ") || "Workout logged",
-      day: formatEntryDay(entry.occurredAt),
-      time: formatEntryTime(entry.occurredAt),
-    };
-  }
-
-  if (entryType === "log_mindfulness") {
-    return {
-      id: entry.id,
-      plugin: pluginId,
-      title: "Completed mindful moment",
-      detail: `${Number(entry.value || 0)} minutes`,
-      day: formatEntryDay(entry.occurredAt),
-      time: formatEntryTime(entry.occurredAt),
-    };
-  }
-
-  return {
-    id: entry.id,
-    plugin: pluginId,
-    title: `Logged ${entryType.replaceAll("_", " ")}`,
-    detail: entry.unit ? `${entry.value ?? ""} ${entry.unit}`.trim() : "Entry added",
-    day: formatEntryDay(entry.occurredAt),
-    time: formatEntryTime(entry.occurredAt),
-  };
-}
-
-function backendActivityToTimelineItem(activity) {
-  return {
-    id: activity.id,
-    plugin: activity.pluginId || "speaklio",
-    title: activity.title || "Activity",
-    detail: activity.detail || "Updated",
-    day: formatEntryDay(activity.occurredAt || activity.createdAt),
-    time: formatEntryTime(activity.occurredAt || activity.createdAt),
-  };
-}
-
-function applyActivities(activities) {
-  state.activities = Array.isArray(activities)
-    ? activities.map(backendActivityToTimelineItem)
-    : [];
-}
-
-function applyEntries(entries) {
-  const defaults = makeDefaultState();
-  state.dashboardInsights = null;
-  state.nutrition = { ...defaults.nutrition, goal: state.profile.goals.calorieGoal, calories: 0, protein: 0, carbs: 0, fats: 0, fiber: 0 };
-  state.finance = { ...defaults.finance, spending: 0 };
-  state.sleep = { ...defaults.sleep };
-  state.workout = { ...defaults.workout, completed: 0, goal: state.profile.goals.weeklyWorkouts };
-  state.hydration = { ...defaults.hydration, ml: 0, goal: state.profile.goals.hydrationGoal };
-  state.mindfulness = { ...defaults.mindfulness, count: 0 };
-
-  entries.forEach((entry) => {
-    const metadata = entry.metadata && typeof entry.metadata === "object" ? entry.metadata : {};
-    const occurredAt = entry.occurredAt || entry.createdAt;
-    const happenedToday = isSameDay(occurredAt);
-    const happenedThisWeek = isThisWeek(occurredAt);
-
-    if (entry.entryType === "log_food" && happenedToday) {
-      state.nutrition.calories += Number(metadata.calories || entry.value || 0);
-      state.nutrition.protein += Number(metadata.protein || 0);
-      state.nutrition.carbs += Number(metadata.carbs || 0);
-      state.nutrition.fats += Number(metadata.fats || 0);
-      state.nutrition.fiber += Number(metadata.fiber || 0);
-    }
-    if (entry.entryType === "log_calories" && happenedToday) state.nutrition.calories += Number(entry.value || 0);
-    if (entry.entryType === "log_expense" && isSameMonth(occurredAt)) state.finance.spending += Number(entry.value || 0);
-    if (entry.entryType === "log_hydration" && happenedToday) state.hydration.ml += Number(entry.value || 0);
-    if (entry.entryType === "log_mindfulness" && happenedThisWeek) state.mindfulness.count += 1;
-    if (entry.entryType === "log_sleep") {
-      state.sleep.minutes = Number(entry.value || state.sleep.minutes);
-      state.sleep.quality = String(metadata.quality || state.sleep.quality);
-      state.sleep.week[state.sleep.week.length - 1] = state.sleep.minutes;
-    }
-    if (entry.entryType === "log_workout") {
-      state.workout.completed += metadata.completed && happenedThisWeek ? 1 : 0;
-      state.workout.title = String(metadata.exercise || metadata.title || state.workout.title);
-      state.workout.duration = Number(metadata.duration || state.workout.duration);
-    }
-  });
-
-  state.activities = entries.map(entryToActivity);
-}
-
-function applyDashboardSummary(payload) {
-  const defaults = makeDefaultState();
-  const hasEnvelope = payload?.summary && typeof payload.summary === "object";
-  const summary = hasEnvelope ? payload.summary : payload && typeof payload === "object" ? payload : {};
-  state.dashboardInsights = hasEnvelope && payload.insights && typeof payload.insights === "object" ? payload.insights : null;
-
-  state.nutrition = {
-    ...defaults.nutrition,
-    goal: state.profile.goals.calorieGoal,
-    ...(summary.nutrition && typeof summary.nutrition === "object" ? summary.nutrition : {}),
-  };
-  state.finance = {
-    ...defaults.finance,
-    ...(summary.finance && typeof summary.finance === "object" ? summary.finance : {}),
-  };
-  state.sleep = {
-    ...defaults.sleep,
-    ...(summary.sleep && typeof summary.sleep === "object" ? summary.sleep : {}),
-  };
-  state.workout = {
-    ...defaults.workout,
-    goal: state.profile.goals.weeklyWorkouts,
-    ...(summary.workout && typeof summary.workout === "object" ? summary.workout : {}),
-  };
-  state.hydration = {
-    ...defaults.hydration,
-    goal: state.profile.goals.hydrationGoal,
-    ...(summary.hydration && typeof summary.hydration === "object" ? summary.hydration : {}),
-  };
-  state.mindfulness = {
-    ...defaults.mindfulness,
-    ...(summary.mindfulness && typeof summary.mindfulness === "object" ? summary.mindfulness : {}),
-  };
-}
-
-function applyRemoteProfile(payload) {
-  const displayName = payload.profile?.display_name || payload.user?.email?.split("@")[0] || state.profile.name;
-  const remotePersonal = payload.profile?.personal_data && typeof payload.profile.personal_data === "object" ? payload.profile.personal_data : {};
-  const remoteGoals = payload.profile?.goals && typeof payload.profile.goals === "object" ? payload.profile.goals : {};
-  state.profile.name = displayName;
-  state.profile.email = payload.user?.email || payload.profile?.email || state.profile.email;
-  state.profile.timezone = payload.profile?.timezone || state.profile.timezone;
-  state.profile.personal = {
-    ...state.profile.personal,
-    ...remotePersonal,
-  };
-  state.profile.goals = {
-    ...state.profile.goals,
-    ...remoteGoals,
-  };
-  state.profile = {
-    ...state.profile,
-    ...(payload.profile?.preferences && typeof payload.profile.preferences === "object" ? payload.profile.preferences : {}),
-  };
-  state.profile.planPersonalized = state.profile.planPersonalized || Object.keys(remotePersonal).length > 0 || Object.keys(remoteGoals).length > 0;
-  state.profile.monthlyBudget = Number(remoteGoals.monthlyBudget ?? state.profile.monthlyBudget ?? state.finance.budget ?? 2000);
-  state.finance.budget = state.profile.monthlyBudget;
-  syncStarterChatGreeting(state);
-}
-
-async function loadRemoteAppState() {
-  setBackendLoading(true);
-  try {
-    const [me, pluginPayload, summaryPayload, activityPayload, integrationPayload] = await Promise.all([
-      apiClient.me(),
-      apiClient.plugins(),
-      apiClient.dashboardSummary(),
-      apiClient.activities(),
-      apiClient.integrations(),
-    ]);
-    applyRemoteProfile(me);
-    setPluginCatalog(pluginPayload.plugins || []);
-    setIntegrationCatalog(integrationPayload.integrations || []);
-    state.installedPlugins = new Set((pluginPayload.plugins || []).filter((plugin) => plugin.enabled).map((plugin) => plugin.id));
-    applyDashboardSummary(summaryPayload);
-    applyActivities(activityPayload.activities || []);
-    state.authenticated = true;
-    clearBackendStatus();
-    saveState();
-    renderAll();
-  } finally {
-    setBackendLoading(false);
-  }
-}
-
-async function createBackendEntry(entry) {
-  const payload = await apiClient.createEntry({
-    occurredAt: new Date().toISOString(),
-    ...entry,
-  });
-  if (payload.entry) {
-    state.lastAssistantEntries = [normalizePreviewEntry(payload.entry)];
-  }
-  await loadRemoteAppState();
-  saveState();
-  return payload;
-}
-
-function currentProfilePayload() {
-  return {
-    displayName: state.profile.name,
-    timezone: state.profile.timezone,
-    personal: state.profile.personal,
-    goals: {
-      ...state.profile.goals,
-      monthlyBudget: state.profile.monthlyBudget ?? state.finance.budget,
-    },
-    preferences: {
-      units: state.profile.units,
-      notifications: state.profile.notifications,
-      weeklySummary: state.profile.weeklySummary,
-      assistantInsights: state.profile.assistantInsights,
-      compactCards: state.profile.compactCards,
-    },
-  };
-}
-
-async function saveProfileSettings(overrides = {}) {
-  if (!state.authenticated || !authSession?.access_token) return null;
-  const payload = {
-    ...currentProfilePayload(),
-    ...overrides,
-  };
-  const result = await apiClient.updateProfile(payload);
-  applyRemoteProfile({ profile: result.profile });
-  saveState();
-  renderAll();
-  return result.profile;
-}
-
-function signedInLocalUiState() {
-  return {
-    scope: "local-ui",
-    currentView: state.currentView,
-    activityFilter: state.activityFilter,
-    activitySearch: state.activitySearch,
-    lastAssistantEntries: state.lastAssistantEntries || [],
-    chats: state.chats,
-  };
-}
-
-function signedOutLocalState() {
-  return {
-    ...state,
-    installedPlugins: [...state.installedPlugins],
-  };
-}
-
-function saveLocalState() {
-  try {
-    if (state.authenticated && authSession?.access_token) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(signedInLocalUiState()));
-      return;
-    }
-
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(signedOutLocalState()));
-  } catch {
-    showToast("This browser could not save the latest update.");
-  }
-}
-
-const saveState = saveLocalState;
-
 function showToast(message) {
   toast.textContent = message;
   toast.classList.add("show");
   clearTimeout(showToast.timeout);
   showToast.timeout = setTimeout(() => toast.classList.remove("show"), 2400);
-}
-
-function clearBackendStatus() {
-  if (backendStatus) {
-    delete backendStatus.dataset.error;
-    backendStatus.hidden = true;
-  }
-}
-
-function setBackendLoading(isLoading) {
-  backendLoading = isLoading;
-  document.body.classList.toggle("remote-loading", backendLoading);
-  if (!backendStatus || !backendStatusCopy) return;
-  if (backendLoading) {
-    backendStatusCopy.textContent = "Loading your Speaklio data...";
-    backendStatus.hidden = false;
-  } else if (!backendStatus.dataset.error) {
-    backendStatus.hidden = true;
-  }
-}
-
-function showBackendLoadError(error) {
-  const detail = error instanceof Error ? error.message : "Backend request failed";
-  const invalidSession = /invalid bearer token/i.test(detail);
-  if (invalidSession) {
-    saveSession(null);
-    state.authenticated = false;
-    saveState();
-    renderAll();
-  }
-  if (backendStatusCopy) {
-    backendStatusCopy.textContent = invalidSession
-      ? "Your saved login expired or no longer matches this Supabase project. Please sign in again."
-      : `Your session is still saved. ${detail}`;
-  }
-  if (backendStatus) {
-    backendStatus.dataset.error = "true";
-    backendStatus.hidden = false;
-  }
-  showToast(invalidSession ? "Please sign in again" : "Unable to refresh backend data");
 }
 
 window.addEventListener("unhandledrejection", (event) => {
@@ -956,9 +86,8 @@ function updateDateAndProfile() {
   }).toUpperCase();
   document.getElementById("greeting").textContent = `${greeting}, ${firstName}.`;
   document.getElementById("profile-name").textContent = state.profile.name;
-  document.getElementById("profile-email").textContent = state.profile.email;
+  document.getElementById("profile-email").textContent = state.profile.email || "Saved in this browser";
   document.querySelector(".mini-profile strong").textContent = state.profile.name;
-  if (loginEmail) loginEmail.value = state.profile.email;
   if (state.profile.planPersonalized) {
     document.getElementById("profile-weight").textContent = formatWeight(personal.weightKg);
     document.getElementById("profile-height").textContent = `${personal.heightCm} cm tall`;
@@ -1005,7 +134,7 @@ function updateDailyBalance() {
     return;
   }
 
-  if (state.authenticated && state.activities.length === 0) {
+  if (state.activities.length === 0) {
     document.getElementById("balance-score").textContent = "0";
     document.getElementById("balance-ring").style.strokeDasharray = "0 100";
     document.getElementById("balance-ring-wrap").setAttribute("aria-label", "Daily balance score 0");
@@ -1301,15 +430,7 @@ function renderChats() {
   chatStream.scrollTop = chatStream.scrollHeight;
 }
 
-function renderAuthState() {
-  document.body.classList.toggle("signed-out", !state.authenticated);
-  if (loginEmail) loginEmail.value = state.profile.email;
-  if (otpPanel && state.authenticated) otpPanel.hidden = true;
-  if (authStatus && state.authenticated) authStatus.textContent = "";
-}
-
 function renderAll() {
-  renderAuthState();
   syncProfileGoalsToDashboard();
   updateDateAndProfile();
   updateMetrics();
@@ -1317,55 +438,6 @@ function renderAll() {
   renderPlugins();
   renderIntegrations();
   renderChats();
-}
-
-async function signIn(email) {
-  const cleanEmail = String(email || "").trim();
-  if (!cleanEmail) return;
-  state.profile.email = cleanEmail;
-  await requestOtp(cleanEmail);
-  if (otpPanel) otpPanel.hidden = false;
-  if (authStatus) authStatus.textContent = `Code sent to ${cleanEmail}. Open Mailpit at http://127.0.0.1:54324.`;
-  loginCode?.focus();
-  saveState();
-  showToast("Sign-in code sent");
-}
-
-async function completeSignIn(code) {
-  const sessionPayload = await verifyOtp(state.profile.email, String(code || "").trim());
-  saveSession(sessionPayload);
-  state.authenticated = true;
-  hideAccountSetup();
-  try {
-    await loadRemoteAppState();
-    openView("home");
-    showToast("Signed in to Speaklio");
-  } catch (error) {
-    saveState();
-    renderAll();
-    showBackendLoadError(error);
-  }
-}
-
-function signOut() {
-  saveSession(null);
-  state = makeDefaultState();
-  pendingAssistantPreview = null;
-  clearBackendStatus();
-  closeModal();
-  hideAssistant();
-  openView("home");
-  hideAccountSetup();
-  saveState();
-  renderAll();
-}
-
-function showAccountSetup() {
-  accountSetupPanel.hidden = false;
-}
-
-function hideAccountSetup() {
-  accountSetupPanel.hidden = true;
 }
 
 function addActivity(activity) {
@@ -1384,352 +456,6 @@ function addMessage(text, sender) {
   if (state.chats.length > 20) state.chats = state.chats.slice(-20);
   saveState();
   renderChats();
-}
-
-function setAssistantPreview(title, copy) {
-  assistantPreviewTitle.textContent = title;
-  assistantPreviewCopy.textContent = copy;
-}
-
-function pluginLabel(pluginId) {
-  return pluginMap[pluginId]?.name || pluginId || "Speaklio";
-}
-
-function normalizePreviewEntry(entry) {
-  const occurredAt = entry.occurredAt ? new Date(entry.occurredAt) : null;
-  return {
-    ...(entry.id ? { id: entry.id } : {}),
-    pluginId: entry.pluginId ?? null,
-    entryType: entry.entryType,
-    value: entry.value ?? null,
-    unit: entry.unit ?? null,
-    metadata: entry.metadata && typeof entry.metadata === "object" ? entry.metadata : {},
-    ...(occurredAt && !Number.isNaN(occurredAt.getTime()) ? { occurredAt: occurredAt.toISOString() } : {}),
-  };
-}
-
-function describePreviewEntry(entry) {
-  const metadata = entry.metadata && typeof entry.metadata === "object" ? entry.metadata : {};
-  const label = pluginLabel(entry.pluginId);
-  if (entry.entryType === "log_food") {
-    const macros = [
-      metadata.protein !== undefined ? `${metadata.protein}g protein` : null,
-      metadata.carbs !== undefined ? `${metadata.carbs}g carbs` : null,
-      metadata.fiber !== undefined ? `${metadata.fiber}g fiber` : null,
-    ].filter(Boolean);
-    const estimate = metadata.estimated ? "estimated " : "";
-    return `${label}: ${metadata.food || "food"}${entry.value ? `, ${estimate}${entry.value} ${entry.unit || "cal"}` : ""}${macros.length ? ` (${macros.join(", ")})` : ""}`;
-  }
-  if (entry.entryType === "log_calories") {
-    return `${label}: ${entry.value || 0} ${entry.unit || "cal"}`;
-  }
-  if (entry.entryType === "log_workout") {
-    return `${label}: ${metadata.exercise || metadata.title || "workout"}`;
-  }
-  if (entry.entryType === "log_expense") {
-    return `${label}: $${formatMoney(Number(entry.value || 0))} ${metadata.category || "expense"}`;
-  }
-  if (entry.entryType === "log_sleep") {
-    return `${label}: ${formatMinutes(Number(entry.value || 0))}${metadata.quality ? `, ${metadata.quality}` : ""}`;
-  }
-  if (entry.entryType === "log_hydration") {
-    return `${label}: ${entry.value || 0} ${entry.unit || "ml"}`;
-  }
-  if (entry.entryType === "log_mindfulness") {
-    return `${label}: ${entry.value || 0} min${metadata.title ? `, ${metadata.title}` : ""}`;
-  }
-  if (entry.entryType === "log_weight") {
-    return `${label}: ${entry.value || 0} ${entry.unit || ""}`.trim();
-  }
-  return `${label}: ${entry.entryType.replaceAll("_", " ")}`;
-}
-
-function assistantEntryEditor(entry, index) {
-  const metadata = entry.metadata && typeof entry.metadata === "object" ? entry.metadata : {};
-  const field = (name, label, value, attrs = "") => `
-    <label>${escapeHtml(label)}<input name="${name}-${index}" value="${escapeHtml(value ?? "")}" ${attrs} /></label>
-  `;
-  const numberField = (name, label, value, attrs = "") => field(name, label, value, `type="number" ${attrs}`);
-  const selectField = (name, label, values, selectedValue) => `
-    <label>${escapeHtml(label)}<select name="${name}-${index}">${optionsMarkup(values, selectedValue)}</select></label>
-  `;
-  let fields = "";
-
-  if (entry.entryType === "log_food") {
-    fields = `
-      ${field("food", "Meal description", metadata.food || metadata.meal || "")}
-      <div class="form-grid">
-        ${numberField("calories", "Calories", metadata.calories ?? entry.value ?? "", 'min="1" required')}
-        ${numberField("protein", "Protein (g)", metadata.protein ?? 0, 'min="0"')}
-        ${numberField("carbs", "Carbs (g)", metadata.carbs ?? 0, 'min="0"')}
-        ${numberField("fats", "Fats (g)", metadata.fats ?? 0, 'min="0"')}
-        ${numberField("fiber", "Fiber (g)", metadata.fiber ?? 0, 'min="0"')}
-      </div>
-    `;
-  } else if (entry.entryType === "log_calories") {
-    fields = numberField("calories", "Calories", entry.value ?? "", 'min="1" required');
-  } else if (entry.entryType === "log_expense") {
-    fields = `
-      <div class="form-grid">
-        ${numberField("amount", "Amount", entry.value ?? "", 'min="0.01" step="0.01" required')}
-        ${selectField("category", "Category", pluginUiConfig.finance.categories, metadata.category || "Other")}
-      </div>
-      ${field("note", "Note", metadata.note || metadata.category || "")}
-    `;
-  } else if (entry.entryType === "log_sleep") {
-    fields = `
-      <div class="form-grid">
-        ${numberField("hours", "Hours slept", entry.value ? (Number(entry.value) / 60).toFixed(1) : "", 'min="0" max="16" step="0.1" required')}
-        ${selectField("quality", "Quality", pluginUiConfig.sleep.qualityOptions, metadata.quality || "Good")}
-      </div>
-    `;
-  } else if (entry.entryType === "log_hydration") {
-    fields = `
-      <div class="form-grid">
-        ${numberField("amount", "Amount", entry.value ?? "", 'min="0.01" step="0.01" required')}
-        ${selectField("unit", "Unit", ["ml", "l", "oz"], entry.unit || "ml")}
-      </div>
-    `;
-  } else if (entry.entryType === "log_mindfulness") {
-    fields = `
-      <div class="form-grid">
-        ${numberField("minutes", "Minutes", entry.value ?? "", 'min="1" required')}
-        ${field("title", "Session", metadata.title || "Mindful moment")}
-      </div>
-    `;
-  } else if (entry.entryType === "log_workout") {
-    fields = `
-      ${field("title", "Workout name", metadata.title || metadata.exercise || "")}
-      <div class="form-grid">
-        ${field("plannedTime", "When", metadata.plannedTime || "")}
-        ${numberField("duration", "Minutes", metadata.duration ?? metadata.durationMinutes ?? "", 'min="1"')}
-        ${selectField("completed", "Status", ["planned", "completed"], metadata.completed === true ? "completed" : "planned")}
-      </div>
-    `;
-  } else if (entry.entryType === "log_weight") {
-    fields = `
-      <div class="form-grid">
-        ${numberField("weight", "Weight", entry.value ?? "", 'min="1" step="0.1" required')}
-        ${selectField("unit", "Unit", ["kg", "lb"], entry.unit || "kg")}
-      </div>
-    `;
-  } else {
-    fields = `<p class="field-note">This entry type can be confirmed, but inline editing is not available yet.</p>`;
-  }
-
-  return `
-    <div class="quick-form">
-      <h3>${escapeHtml(describePreviewEntry(entry))}</h3>
-      <input type="hidden" name="pluginId-${index}" value="${escapeHtml(entry.pluginId ?? "")}" />
-      <input type="hidden" name="entryType-${index}" value="${escapeHtml(entry.entryType ?? "")}" />
-      ${fields}
-    </div>
-  `;
-}
-
-function updateAssistantPreviewSummary() {
-  const entries = pendingAssistantPreview?.entries || [];
-  if (!entries.length) {
-    setAssistantPreview("No pending action", "Ask Speaklio to log something and this panel will prepare a structured update for your review.");
-    return;
-  }
-
-  const descriptions = entries.map(describePreviewEntry);
-  setAssistantPreview(
-    `${entries.length} action${entries.length === 1 ? "" : "s"} ready`,
-    `${descriptions.join(" - ")}. Confirm to save ${entries.length === 1 ? "it" : "them"}.`,
-  );
-}
-
-function editedAssistantEntry(entry, data, index) {
-  const metadata = entry.metadata && typeof entry.metadata === "object" ? { ...entry.metadata } : {};
-  const edited = { ...entry, metadata };
-  const valueOf = (name) => data.get(`${name}-${index}`);
-  const numberOf = (name, fallback = 0) => {
-    const parsed = Number(valueOf(name));
-    return Number.isFinite(parsed) ? parsed : fallback;
-  };
-  const stringOf = (name, fallback = "") => String(valueOf(name) || fallback).trim();
-
-  if (entry.entryType === "log_food") {
-    const calories = numberOf("calories");
-    edited.value = calories;
-    edited.unit = "cal";
-    edited.metadata = {
-      ...metadata,
-      food: stringOf("food", metadata.food || metadata.meal || "meal"),
-      meal: metadata.meal || "Meal",
-      calories,
-      protein: numberOf("protein"),
-      carbs: numberOf("carbs"),
-      fats: numberOf("fats"),
-      fiber: numberOf("fiber"),
-    };
-  } else if (entry.entryType === "log_calories") {
-    edited.value = numberOf("calories");
-    edited.unit = "cal";
-  } else if (entry.entryType === "log_expense") {
-    const category = stringOf("category", metadata.category || "Other");
-    edited.value = numberOf("amount");
-    edited.unit = "usd";
-    edited.metadata = {
-      ...metadata,
-      category,
-      note: stringOf("note", metadata.note || category),
-    };
-  } else if (entry.entryType === "log_sleep") {
-    edited.value = numberOf("hours") * 60;
-    edited.unit = "min";
-    edited.metadata = {
-      ...metadata,
-      quality: stringOf("quality", metadata.quality || "Good"),
-    };
-  } else if (entry.entryType === "log_hydration") {
-    edited.value = numberOf("amount");
-    edited.unit = stringOf("unit", entry.unit || "ml");
-  } else if (entry.entryType === "log_mindfulness") {
-    edited.value = numberOf("minutes");
-    edited.unit = "min";
-    edited.metadata = {
-      ...metadata,
-      title: stringOf("title", metadata.title || "Mindful moment"),
-    };
-  } else if (entry.entryType === "log_workout") {
-    const title = stringOf("title", metadata.title || metadata.exercise || "Workout");
-    edited.metadata = {
-      ...metadata,
-      exercise: title,
-      title,
-      plannedTime: stringOf("plannedTime", metadata.plannedTime || ""),
-      duration: numberOf("duration", Number(metadata.duration ?? metadata.durationMinutes ?? 0)),
-      completed: stringOf("completed") === "completed",
-    };
-  } else if (entry.entryType === "log_weight") {
-    edited.value = numberOf("weight");
-    edited.unit = stringOf("unit", entry.unit || "kg");
-  }
-
-  return normalizePreviewEntry(edited);
-}
-
-async function previewBackendAssistantRequest(text) {
-  try {
-    const payload = await apiClient.previewAssistantEntry(text);
-    const previews = Array.isArray(payload.previews) ? payload.previews : [];
-    const entries = previews
-      .map((preview) => preview.entry)
-      .filter(Boolean)
-      .map(normalizePreviewEntry);
-
-    if (entries.length === 0) {
-      pendingAssistantPreview = null;
-      const reason = previews.map((preview) => preview.reason).find(Boolean);
-      if (reason) {
-        addMessage(`${reason}. Add the missing detail and try again, or use the plugin form.`, "assistant");
-        return true;
-      }
-      return false;
-    }
-
-    pendingAssistantPreview = { entries, previews, text };
-    const descriptions = entries.map(describePreviewEntry);
-    setAssistantPreview(
-      `${entries.length} action${entries.length === 1 ? "" : "s"} ready`,
-      `${descriptions.join(" - ")}. Confirm to save ${entries.length === 1 ? "it" : "them"}.`,
-    );
-    addMessage(`I prepared ${entries.length === 1 ? "an entry" : `${entries.length} entries`} for review. Confirm when it looks right.`, "assistant");
-    return true;
-  } catch (error) {
-    pendingAssistantPreview = null;
-    setAssistantPreview(
-      "Assistant unavailable",
-      ASSISTANT_REGEX_FALLBACK_ENABLED
-        ? "Local AI is unavailable, so Speaklio will use the development fallback for this request."
-        : "Local AI is unavailable. Use a plugin form or try again when the assistant service is back.",
-    );
-    return false;
-  }
-}
-
-async function confirmAssistantPreview() {
-  if (!pendingAssistantPreview?.entries?.length) {
-    showToast("No pending assistant action");
-    return;
-  }
-
-  const descriptions = pendingAssistantPreview.entries.map(describePreviewEntry);
-  const payload = await apiClient.confirmAssistantActions(pendingAssistantPreview.entries);
-  const count = payload.entries?.length || pendingAssistantPreview.entries.length;
-  state.lastAssistantEntries = Array.isArray(payload.entries)
-    ? payload.entries.map(normalizePreviewEntry)
-    : pendingAssistantPreview.entries.map(normalizePreviewEntry);
-  pendingAssistantPreview = null;
-  setAssistantPreview("No pending action", "Ask Speaklio to log something and this panel will prepare a structured update for your review.");
-  await loadRemoteAppState();
-  saveState();
-  addMessage(`Saved ${count} ${count === 1 ? "entry" : "entries"} to your dashboard: ${descriptions.join(" - ")}.`, "assistant");
-  showToast("Assistant action saved");
-}
-
-function cancelAssistantPreview() {
-  if (!pendingAssistantPreview?.entries?.length) {
-    showToast("No pending assistant action");
-    return;
-  }
-
-  pendingAssistantPreview = null;
-  setAssistantPreview("No pending action", "Ask Speaklio to log something and this panel will prepare a structured update for your review.");
-  addMessage("No problem. I cleared the pending action.", "assistant");
-}
-
-function editAssistantPreview() {
-  const entries = pendingAssistantPreview?.entries;
-  if (!entries?.length) {
-    showToast("No pending assistant action");
-    return;
-  }
-
-  openModal({
-    eyebrow: "ASSISTANT",
-    title: "Edit pending action",
-    body: `
-      <form class="quick-form" data-form="assistant-preview">
-        <div class="modal-notice"><p>Review the details Speaklio will save when you confirm.</p></div>
-        ${entries.map(assistantEntryEditor).join("")}
-        <button class="primary-button" type="submit">Update preview</button>
-      </form>
-    `,
-  });
-}
-
-function previewAssistantRequest(text) {
-  const lower = text.toLowerCase();
-  if (/(water|drank|hydrate|hydration)/.test(lower)) {
-    setAssistantPreview("Hydration entry", "Ready to add this amount to today's water total after confirmation.");
-    return;
-  }
-
-  if (/(spent|expense|paid|bought)/.test(lower)) {
-    setAssistantPreview("Finance entry", "Ready to create an expense with amount, category, and note.");
-    return;
-  }
-
-  if (/(sleep|slept|last night)/.test(lower)) {
-    setAssistantPreview("Sleep update", "Ready to update last night's duration and quality.");
-    return;
-  }
-
-  if (/(workout|exercise|training)/.test(lower)) {
-    setAssistantPreview("Workout plan", "Ready to save the workout name, time, and duration.");
-    return;
-  }
-
-  if (/(calories|nutrition|macros|eggs|toast|breakfast|lunch|dinner|snack|ate|meal)/.test(lower)) {
-    setAssistantPreview("Nutrition entry", "Ready to log the meal details and update today's nutrition totals.");
-    return;
-  }
-
-  setAssistantPreview("Needs review", "Speaklio needs one more detail before saving anything.");
 }
 
 function openView(viewName) {
@@ -1830,7 +556,7 @@ function openNutritionScan() {
           <div class="permission-list">
             <div><strong>Capture</strong><span>Open camera or upload a meal photo.</span></div>
             <div><strong>Review</strong><span>Confirm foods, portions, calories, and macros.</span></div>
-            <div><strong>Save</strong><span>Create the same backend nutrition entry as manual logging.</span></div>
+            <div><strong>Save</strong><span>Use the Nutrition form to save calories and macros locally.</span></div>
           </div>
           <div class="stacked-actions">
             <button class="primary-button" type="button" data-modal-action="close">Done</button>
@@ -1875,9 +601,7 @@ function openIntegration(integrationId) {
 
 function applyAccountSetup(data) {
   const name = String(data.get("name") || state.profile.name).trim() || state.profile.name;
-  const email = state.authenticated
-    ? state.profile.email
-    : String(data.get("email") || state.profile.email).trim() || state.profile.email;
+  const email = String(data.get("email") || "").trim();
   const age = Number(data.get("age") || state.profile.personal.age);
   const heightCm = Number(data.get("heightCm") || state.profile.personal.heightCm);
   const weightKg = Number(data.get("weightKg") || state.profile.personal.weightKg);
@@ -2076,14 +800,6 @@ async function togglePlugin(pluginId) {
   if (!plugin) return;
   const installed = state.installedPlugins.has(pluginId);
 
-  if (state.authenticated && authSession?.access_token) {
-    await apiClient.setPluginEnabled(pluginId, !installed);
-    await loadRemoteAppState();
-    closeModal();
-    showToast(`${plugin.name} ${installed ? "removed from" : "added to"} your dashboard`);
-    return;
-  }
-
   if (installed) {
     state.installedPlugins.delete(pluginId);
     closeModal();
@@ -2097,17 +813,6 @@ async function togglePlugin(pluginId) {
 }
 
 async function logWater(amount) {
-  if (state.authenticated && authSession?.access_token) {
-    await createBackendEntry({
-      pluginId: "hydration",
-      entryType: "log_hydration",
-      value: amount,
-      unit: "ml",
-      metadata: {},
-    });
-    showToast(`${amount} ml added to Hydration`);
-    return;
-  }
 
   state.hydration.ml += amount;
   addActivity({ plugin: "hydration", title: "Added water", detail: `${amount} ml - ${state.hydration.ml} ml today` });
@@ -2117,17 +822,6 @@ async function logWater(amount) {
 }
 
 async function logMindfulness(minutes) {
-  if (state.authenticated && authSession?.access_token) {
-    await createBackendEntry({
-      pluginId: "mindfulness",
-      entryType: "log_mindfulness",
-      value: minutes,
-      unit: "min",
-      metadata: {},
-    });
-    showToast("Mindful moment completed");
-    return;
-  }
 
   state.mindfulness.count += 1;
   addActivity({ plugin: "mindfulness", title: "Completed mindful moment", detail: `${minutes}-minute guided breathing` });
@@ -2137,19 +831,6 @@ async function logMindfulness(minutes) {
 }
 
 async function completeWorkout() {
-  if (state.authenticated && authSession?.access_token) {
-    await createBackendEntry({
-      pluginId: "workout",
-      entryType: "log_workout",
-      metadata: {
-        exercise: state.workout.title,
-        duration: state.workout.duration,
-        completed: true,
-      },
-    });
-    showToast("Workout marked complete");
-    return;
-  }
 
   state.workout.completed += 1;
   addActivity({ plugin: "workout", title: `Completed ${state.workout.title.toLowerCase()}`, detail: `${state.workout.duration} minutes - Session ${state.workout.completed} of ${state.workout.goal}` });
@@ -2282,8 +963,8 @@ function openProfileAction(action) {
       title: "Notifications",
       body: `
         <form class="quick-form" data-form="notifications">
-          <label class="toggle-row"><span><strong>Daily reminders</strong><small>A gentle reminder to check in with Speaklio.</small></span><input name="notifications" type="checkbox" ${state.profile.notifications ? "checked" : ""} /></label>
-          <label class="toggle-row"><span><strong>Weekly summary</strong><small>See your progress at the end of each week.</small></span><input name="weeklySummary" type="checkbox" ${state.profile.weeklySummary ? "checked" : ""} /></label>
+          <label class="toggle-row"><span><strong>Daily reminders</strong><small>Saved preference only; reminders are not sent yet.</small></span><input name="notifications" type="checkbox" ${state.profile.notifications ? "checked" : ""} /></label>
+          <label class="toggle-row"><span><strong>Weekly summary</strong><small>Saved preference only; scheduled summaries are not sent yet.</small></span><input name="weeklySummary" type="checkbox" ${state.profile.weeklySummary ? "checked" : ""} /></label>
           <button class="primary-button" type="submit">Save preferences</button>
         </form>
       `,
@@ -2297,11 +978,11 @@ function openProfileAction(action) {
       body: `
         <div class="modal-notice">
           <strong>You control what Speaklio can use.</strong>
-          <p>Review export, reset, and connected-app controls for your account data.</p>
+          <p>Review export, reset, and connected-app controls for data saved in this browser.</p>
         </div>
         <div class="stacked-actions">
           <button class="wide-action-button" data-modal-action="export-data">Export my data</button>
-          <button class="danger-button" data-modal-action="confirm-reset">Reset account data</button>
+          <button class="danger-button" data-modal-action="confirm-reset">Reset local data</button>
         </div>
       `,
     });
@@ -2344,7 +1025,7 @@ function openProfileAction(action) {
 }
 
 function exportData() {
-  const payload = JSON.stringify({ ...state, installedPlugins: [...state.installedPlugins] }, null, 2);
+  const payload = JSON.stringify(serializeState(), null, 2);
   const url = URL.createObjectURL(new Blob([payload], { type: "application/json" }));
   const link = document.createElement("a");
   link.href = url;
@@ -2357,484 +1038,25 @@ function exportData() {
 }
 
 function resetAccountData() {
-  state = makeDefaultState();
+  resetState();
   saveState();
   renderAll();
   closeModal();
-  showToast("Account data reset");
+  showToast("Local data reset");
 }
 
-function ensureInstalled(pluginId) {
-  if (state.installedPlugins.has(pluginId)) return true;
-  addMessage(`${pluginMap[pluginId].name} is not installed yet. Add it from the plugin store and I can track that for you.`, "assistant");
-  showToast(`${pluginMap[pluginId].name} plugin is not installed`);
-  return false;
+function saveState() {
+  try { saveLocalState(); }
+  catch { showToast("This browser could not save the latest update. Export your data before closing."); }
 }
 
-function classifyExpense(text) {
-  const categories = pluginUiConfig.finance.categories;
-  if (/(grocery|groceries|supermarket)/.test(text)) return categories.includes("Groceries") ? "Groceries" : categories[0];
-  if (/(gas|uber|taxi|bus|transport)/.test(text)) return categories.includes("Transport") ? "Transport" : categories[0];
-  if (/(bill|rent|phone|internet)/.test(text)) return categories.includes("Bills") ? "Bills" : categories[0];
-  if (/(lunch|dinner|coffee|restaurant|breakfast)/.test(text)) return categories.includes("Dining") ? "Dining" : categories[0];
-  return categories.includes("Other") ? "Other" : categories[0];
-}
-
-function inferMealType(text) {
-  if (/breakfast/.test(text)) return "Breakfast";
-  if (/lunch/.test(text)) return "Lunch";
-  if (/dinner/.test(text)) return "Dinner";
-  if (/snack/.test(text)) return "Snack";
-  return "Meal";
-}
-
-function parseMacro(text, macro) {
-  const pattern = new RegExp(`(?:${macro}\\s*(\\d+(?:\\.\\d+)?)\\s*g?)|(?:(\\d+(?:\\.\\d+)?)\\s*g?\\s*(?:of\\s*)?${macro})`, "i");
-  const match = text.match(pattern);
-  return match ? Number(match[1] || match[2]) : null;
-}
-
-function workoutPlanFromText(text) {
-  const durationMatch = text.match(/(\d+)\s*(?:minute|min)\b/i);
-  const timeMatch = text.match(/\b(?:today|tomorrow|tonight)\b(?:\s+(?:at|around))?\s*\d{1,2}(?::\d{2})?\s*(?:am|pm)?|\b\d{1,2}(?::\d{2})?\s*(?:am|pm)\b|\b(?:today|tomorrow|tonight)\b/i);
-  const title = text
-    .replace(/^(please\s+)?(plan|schedule|add)\s+(a\s+)?/i, "")
-    .replace(/\b(?:today|tomorrow|tonight)\b.*$/i, "")
-    .replace(/\b(?:at|around)\s+\d{1,2}(?::\d{2})?\s*(?:am|pm)?\b/i, "")
-    .replace(/\b\d+\s*(?:minute|min)\b/i, "")
-    .replace(/\b(workout|exercise|training)\b/gi, "workout")
-    .trim();
-
-  return {
-    title: title || "Workout",
-    plannedTime: timeMatch ? timeMatch[0].trim() : "",
-    duration: durationMatch ? Number(durationMatch[1]) : 0,
-  };
-}
-
-function currentBalanceMetrics() {
-  const metrics = [
-    { label: "calories", percent: percentOf(state.nutrition.calories, state.nutrition.goal) },
-    { label: "sleep", percent: percentOf(state.sleep.minutes, 420) },
-    { label: "workouts", percent: percentOf(state.workout.completed, state.workout.goal) },
-  ];
-  if (state.installedPlugins.has("hydration")) {
-    metrics.push({ label: "hydration", percent: percentOf(state.hydration.ml, state.hydration.goal) });
-  }
-  return metrics;
-}
-
-function dashboardQuestionAnswer(lower) {
-  const asksQuestion = /\b(how|what|where|when|why|summary|total|today|left|remaining|balance|status|progress|on track|advice|tip|suggest|recommend|help me)\b/.test(lower);
-  const looksLikeLog = /^(log|add|track|save|record)\b|^i\s+(ate|drank|spent|paid|bought|slept)\b|^(plan|schedule|complete|finished|did)\b/.test(lower);
-  if (!asksQuestion || looksLikeLog) return null;
-
-  if (/(calories|nutrition|macros?|protein|carbs?|fats?|fiber)/.test(lower)) {
-    const proteinLeft = Math.max(0, state.profile.goals.proteinGoal - state.nutrition.protein);
-    return `Today you have logged ${state.nutrition.calories.toLocaleString()} of ${state.nutrition.goal.toLocaleString()} calories, plus ${state.nutrition.protein}g protein, ${state.nutrition.carbs}g carbs, ${state.nutrition.fats}g fats, and ${state.nutrition.fiber}g fiber. ${proteinLeft ? `${proteinLeft}g protein left for your goal.` : "You have hit your protein goal."}`;
-  }
-
-  if (/(budget|spending|spent|money|finance|left|remaining)/.test(lower)) {
-    const left = state.finance.budget - state.finance.spending;
-    return `You have spent $${formatMoney(state.finance.spending)} of your $${formatMoney(state.finance.budget)} monthly budget. ${left >= 0 ? `$${formatMoney(left)} remains.` : `You are $${formatMoney(Math.abs(left))} over budget.`}`;
-  }
-
-  if (/(water|hydrate|hydration)/.test(lower)) {
-    return `You are at ${(state.hydration.ml / 1000).toFixed(1)} L of your ${(state.hydration.goal / 1000).toFixed(1)} L water goal today.`;
-  }
-
-  if (/(sleep|slept|rest)/.test(lower)) {
-    return `Your latest sleep log is ${formatMinutes(state.sleep.minutes)} with ${String(state.sleep.quality).toLowerCase()} quality.`;
-  }
-
-  if (/(workout|exercise|training)/.test(lower)) {
-    return `You have completed ${state.workout.completed} of ${state.workout.goal} workouts this week. ${state.workout.title !== "No workout planned" ? `Next up: ${state.workout.title}${state.workout.time ? ` at ${state.workout.time}` : ""}.` : "No workout is scheduled yet."}`;
-  }
-
-  if (/(balance|goals?|on track|progress|status)/.test(lower)) {
-    const insightBalance = state.dashboardInsights?.balance;
-    const metrics = currentBalanceMetrics();
-    const onTrack = insightBalance?.onTrack ?? metrics.filter((metric) => metric.percent >= 70).length;
-    const total = insightBalance?.total ?? metrics.length;
-    const score = insightBalance?.score ?? Math.round(metrics.reduce((sum, metric) => sum + metric.percent, 0) / Math.max(1, metrics.length));
-    return `Your daily balance is ${score}. ${onTrack} of ${total} goals are on track right now.`;
-  }
-
-  if (/(advice|tip|suggest|recommend|what should i do|help me|what should i eat)/.test(lower)) {
-    const proteinLeft = Math.max(0, state.profile.goals.proteinGoal - state.nutrition.protein);
-    const caloriesLeft = Math.max(0, state.nutrition.goal - state.nutrition.calories);
-    const waterLeftMl = Math.max(0, state.hydration.goal - state.hydration.ml);
-    if (/eat|meal|food|nutrition|protein/.test(lower)) {
-      return proteinLeft
-        ? `A good next meal would prioritize protein: aim for roughly ${Math.min(40, proteinLeft)}g protein while staying within about ${caloriesLeft.toLocaleString()} calories left today.`
-        : `You are covered on protein today, so a lighter meal with vegetables, carbs as needed, and some fiber would fit well.`;
-    }
-    if (waterLeftMl > 0) return `A useful next move is water: ${Math.round(waterLeftMl)} ml left toward today's hydration goal.`;
-    if (state.workout.completed < state.workout.goal) return `A short workout would help your week: even 20 to 30 minutes counts toward your ${state.workout.goal}-workout goal.`;
-    return "You are in decent shape today. Keep logging meals or expenses as they happen so the dashboard stays accurate.";
-  }
-
-  return null;
-}
-
-function lastAssistantEntry() {
-  return Array.isArray(state.lastAssistantEntries) ? state.lastAssistantEntries[0] : null;
-}
-
-function isAssistantCorrection(lower) {
-  return /\b(actually|change|update|set|make|correct|undo|delete|remove|that should|it was|instead)\b/.test(lower);
-}
-
-function isDeleteCorrection(lower) {
-  return /\b(delete|remove|undo)\b/.test(lower) && /\b(that|it|last|entry|log)\b/.test(lower);
-}
-
-function correctionPatchForEntry(text, lower, entry) {
-  const metadata = entry.metadata && typeof entry.metadata === "object" ? { ...entry.metadata } : {};
-  const patch = {};
-
-  if (entry.entryType === "log_food" || entry.entryType === "log_calories") {
-    let changed = false;
-    const calorieMatch = lower.match(/(\d+)\s*(?:cal|calories)\b/);
-    const protein = parseMacro(text, "protein");
-    const carbs = parseMacro(text, "carbs?");
-    const fats = parseMacro(text, "fats?");
-    const fiber = parseMacro(text, "fiber");
-    const meal = inferMealType(lower);
-    if (calorieMatch) {
-      const calories = Number(calorieMatch[1]);
-      patch.value = calories;
-      patch.unit = "cal";
-      metadata.calories = calories;
-      metadata.estimated = false;
-      changed = true;
-    }
-    if (protein !== null) { metadata.protein = protein; changed = true; }
-    if (carbs !== null) { metadata.carbs = carbs; changed = true; }
-    if (fats !== null) { metadata.fats = fats; changed = true; }
-    if (fiber !== null) { metadata.fiber = fiber; changed = true; }
-    if (meal !== "Meal") { metadata.meal = meal; changed = true; }
-    if (changed) patch.metadata = metadata;
-  }
-
-  if (entry.entryType === "log_expense") {
-    const amountMatch = lower.match(/\$?\s*(\d+(?:\.\d{1,2})?)/);
-    if (amountMatch) patch.value = Number(amountMatch[1]);
-    const category = classifyExpense(lower);
-    if (category && category !== "Other") {
-      metadata.category = category;
-      patch.metadata = metadata;
-    }
-  }
-
-  if (entry.entryType === "log_hydration") {
-    const waterMatch = lower.match(/(\d+(?:\.\d+)?)\s*(ml|milliliters?|l|liters?|oz|ounces?)/);
-    if (waterMatch) {
-      patch.value = Number(waterMatch[1]);
-      patch.unit = waterMatch[2].startsWith("liter") ? "l" : waterMatch[2].startsWith("ounce") ? "oz" : waterMatch[2].startsWith("milliliter") ? "ml" : waterMatch[2];
-    }
-  }
-
-  if (entry.entryType === "log_sleep") {
-    const hoursMatch = lower.match(/(\d+(?:\.\d+)?)\s*(?:hours?|hrs?|h)\b/);
-    if (hoursMatch) {
-      patch.value = Number(hoursMatch[1]) * 60;
-      patch.unit = "min";
-    }
-    const quality = ["Great", "Good", "Fair", "Poor"].find((option) => lower.includes(option.toLowerCase()));
-    if (quality) {
-      metadata.quality = quality;
-      patch.metadata = metadata;
-    }
-  }
-
-  if (entry.entryType === "log_workout") {
-    if (/\b(done|complete|completed|finished)\b/.test(lower)) {
-      metadata.completed = true;
-      patch.metadata = metadata;
-    }
-    const durationMatch = lower.match(/(\d+)\s*(?:minute|min)\b/);
-    if (durationMatch) {
-      metadata.duration = Number(durationMatch[1]);
-      patch.metadata = metadata;
-    }
-  }
-
-  return Object.keys(patch).length ? patch : null;
-}
-
-async function tryHandleAssistantCorrection(text, lower) {
-  if (!isAssistantCorrection(lower)) return false;
-
-  const entry = lastAssistantEntry();
-  if (!entry?.id) {
-    addMessage("I can change or delete the last entry I saved for you. I do not have a saved assistant entry to edit yet.", "assistant");
-    return true;
-  }
-
-  if (!state.authenticated || !authSession?.access_token) {
-    addMessage("Corrections are available after sign-in because they update the saved backend entry.", "assistant");
-    return true;
-  }
-
-  if (isDeleteCorrection(lower)) {
-    const description = describePreviewEntry(entry);
-    await apiClient.deleteEntry(entry.id);
-    state.lastAssistantEntries = [];
-    await loadRemoteAppState();
-    saveState();
-    addMessage(`Deleted the last saved entry: ${description}.`, "assistant");
-    showToast("Assistant entry deleted");
-    return true;
-  }
-
-  const patch = correctionPatchForEntry(text, lower, entry);
-  if (!patch) {
-    addMessage("I can update calories, macros, amount, duration, quality, meal type, or delete the last saved entry. Tell me the new value and I will change it.", "assistant");
-    return true;
-  }
-
-  const payload = await apiClient.updateEntry(entry.id, patch);
-  const updatedEntry = payload.entry ? normalizePreviewEntry(payload.entry) : { ...entry, ...patch };
-  state.lastAssistantEntries = [updatedEntry];
-  await loadRemoteAppState();
-  saveState();
-  addMessage(`Updated the last saved entry: ${describePreviewEntry(updatedEntry)}.`, "assistant");
-  showToast("Assistant entry updated");
-  return true;
-}
-
-async function processRequest(rawText) {
-  const text = rawText.trim();
-  const lower = text.toLowerCase();
-  if (!text) return;
-  addMessage(text, "user");
-  previewAssistantRequest(text);
+const handleRequest = createAssistant({ addMessage, addActivity, saveState, renderAll, showToast, logWater, logMindfulness, completeWorkout });
+function processRequest(text) {
   input.value = "";
-
-  if (await tryHandleAssistantCorrection(text, lower)) {
-    return;
-  }
-
-  const dashboardAnswer = dashboardQuestionAnswer(lower);
-  if (dashboardAnswer) {
-    pendingAssistantPreview = null;
-    setAssistantPreview("No pending action", "Ask Speaklio to log something and this panel will prepare a structured update for your review.");
-    addMessage(dashboardAnswer, "assistant");
-    return;
-  }
-
-  if (state.authenticated && authSession?.access_token) {
-    if (await previewBackendAssistantRequest(text)) {
-      return;
-    }
-
-    if (!ASSISTANT_REGEX_FALLBACK_ENABLED) {
-      addMessage("I could not prepare a backend action for that. Try again with the amount, duration, or item name, or use the plugin form.", "assistant");
-      return;
-    }
-  }
-
-    const waterMatch = lower.match(/(\d+(?:\.\d+)?)\s*(ml|milliliters?|l|liters?)/);
-    if (/(water|drank|hydrate|hydration)/.test(lower) && waterMatch) {
-      if (!ensureInstalled("hydration")) return;
-      const amount = waterMatch[2].startsWith("l") ? Number(waterMatch[1]) * 1000 : Number(waterMatch[1]);
-      await logWater(amount);
-      addMessage(`Logged ${amount} ml of water. You are at ${(state.hydration.ml / 1000).toFixed(1)} L of your ${(state.hydration.goal / 1000).toFixed(1)} L goal.`, "assistant");
-      return;
-    }
-
-    if (/(water|hydrate|hydration)/.test(lower)) {
-      if (!ensureInstalled("hydration")) return;
-      addMessage(`You are at ${(state.hydration.ml / 1000).toFixed(1)} L of your ${(state.hydration.goal / 1000).toFixed(1)} L water goal today.`, "assistant");
-      return;
-    }
-
-    if (/(meditat|mindful|breathing)/.test(lower)) {
-      if (!ensureInstalled("mindfulness")) return;
-      const minutes = Number((lower.match(/(\d+)\s*(?:minute|min)/) || [0, state.mindfulness.duration])[1]);
-      await logMindfulness(minutes);
-      addMessage(`Nice work. I logged a ${minutes}-minute mindful moment.`, "assistant");
-      return;
-    }
-
-    if (/(sleep|slept|last night)/.test(lower)) {
-      if (!ensureInstalled("sleep")) return;
-      const hoursMatch = lower.match(/(\d+(?:\.\d+)?)\s*(?:hours?|hrs?|h)\b/);
-      if (hoursMatch && /(slept|log|had)/.test(lower)) {
-        const minutes = Number(hoursMatch[1]) * 60;
-        const quality = minutes >= 420 ? "Good" : "Fair";
-        if (state.authenticated && authSession?.access_token) {
-          await createBackendEntry({
-            pluginId: "sleep",
-            entryType: "log_sleep",
-            value: minutes,
-            unit: "min",
-            metadata: { quality },
-          });
-          addMessage(`Logged ${formatMinutes(minutes)} of sleep. I marked the quality as ${quality.toLowerCase()}.`, "assistant");
-          return;
-        }
-        state.sleep.minutes = Number(hoursMatch[1]) * 60;
-        state.sleep.week[state.sleep.week.length - 1] = state.sleep.minutes;
-        state.sleep.quality = state.sleep.minutes >= 420 ? "Good" : "Fair";
-        addActivity({ plugin: "sleep", title: "Updated sleep summary", detail: `${formatMinutes(state.sleep.minutes)} - ${state.sleep.quality} quality` });
-        saveState();
-        renderAll();
-        addMessage(`Logged ${formatMinutes(state.sleep.minutes)} of sleep. I marked the quality as ${state.sleep.quality.toLowerCase()}.`, "assistant");
-      } else {
-        addMessage(`You slept for ${formatMinutes(state.sleep.minutes)} last night. Your sleep quality was ${state.sleep.quality.toLowerCase()}.`, "assistant");
-      }
-      return;
-    }
-
-    if (/(budget|how much.*spent|spending|money.*left)/.test(lower)) {
-      if (!ensureInstalled("finance")) return;
-      addMessage(`You have spent $${formatMoney(state.finance.spending)} of your $${formatMoney(state.finance.budget)} monthly budget.`, "assistant");
-      return;
-    }
-
-    if (/(spent|expense|paid|bought)/.test(lower)) {
-      if (!ensureInstalled("finance")) return;
-      const amountMatch = lower.match(/\$?\s*(\d+(?:\.\d{1,2})?)/);
-      if (!amountMatch) {
-        addMessage('Tell me the amount and I will add that expense. For example: "I spent $18 on groceries."', "assistant");
-        return;
-      }
-      const amount = Number(amountMatch[1]);
-      const category = classifyExpense(lower);
-      if (state.authenticated && authSession?.access_token) {
-        await createBackendEntry({
-          pluginId: "finance",
-          entryType: "log_expense",
-          value: amount,
-          unit: "usd",
-          metadata: { category, note: category },
-        });
-        addMessage(`Done. I added $${amount.toFixed(2)} to ${category.toLowerCase()}. You have $${formatMoney(state.finance.budget - state.finance.spending)} left in this month's budget.`, "assistant");
-        showToast("Expense added to Finance");
-        return;
-      }
-      state.finance.spending += amount;
-      addActivity({ plugin: "finance", title: `Added ${category.toLowerCase()} expense`, detail: `${category} - $${amount.toFixed(2)}` });
-      saveState();
-      renderAll();
-      addMessage(`Done. I added $${amount.toFixed(2)} to ${category.toLowerCase()}. You have $${formatMoney(state.finance.budget - state.finance.spending)} left in this month's budget.`, "assistant");
-      showToast("Expense added to Finance");
-      return;
-    }
-
-    if (/(complete|finished|did).*(workout|exercise|training)/.test(lower)) {
-      if (!ensureInstalled("workout")) return;
-      await completeWorkout();
-      addMessage(`Logged. That brings you to ${state.workout.completed} of ${state.workout.goal} workouts this week.`, "assistant");
-      return;
-    }
-
-    if (/(workout|exercise|training|tomorrow)/.test(lower)) {
-      if (!ensureInstalled("workout")) return;
-      const plan = workoutPlanFromText(text);
-      if (!plan.duration || !plan.plannedTime) {
-        addMessage("Tell me the workout duration and when to schedule it, or use the Workout form.", "assistant");
-        return;
-      }
-      if (state.authenticated && authSession?.access_token) {
-        await createBackendEntry({
-          pluginId: "workout",
-          entryType: "log_workout",
-          metadata: { exercise: plan.title, title: plan.title, plannedTime: plan.plannedTime, duration: plan.duration, completed: false },
-        });
-        addMessage(`I planned ${plan.title} for ${plan.plannedTime} as a ${plan.duration}-minute workout. It is now on your dashboard.`, "assistant");
-        showToast("Workout added to your plan");
-        return;
-      }
-      state.workout = { ...state.workout, title: plan.title, time: plan.plannedTime, duration: plan.duration };
-      addActivity({ plugin: "workout", title: `Planned ${plan.title}`, detail: `${plan.plannedTime} - ${plan.duration} min` });
-      saveState();
-      renderAll();
-      addMessage(`I planned ${plan.title} for ${plan.plannedTime} as a ${plan.duration}-minute workout. It is now on your dashboard.`, "assistant");
-      showToast("Workout added to your plan");
-      return;
-    }
-
-    if (/(calories|nutrition|macros)/.test(lower) && /(how|total|today|many)/.test(lower)) {
-      if (!ensureInstalled("nutrition")) return;
-      addMessage(`You are at ${state.nutrition.calories.toLocaleString()} of ${state.nutrition.goal.toLocaleString()} calories today, with ${state.nutrition.protein}g of protein.`, "assistant");
-      return;
-    }
-
-    if (/(eggs|toast|breakfast|lunch|dinner|snack|ate|meal)/.test(lower)) {
-      if (!ensureInstalled("nutrition")) return;
-      const calorieMatch = lower.match(/(\d+)\s*(?:cal|calories)/);
-      if (!calorieMatch) {
-        addMessage("Tell me the calories for that meal, or use the Nutrition form to log full macros.", "assistant");
-        return;
-      }
-      const calories = Number(calorieMatch[1]);
-      const protein = parseMacro(text, "protein");
-      const carbs = parseMacro(text, "carbs?");
-      const fats = parseMacro(text, "fats?");
-      const fiber = parseMacro(text, "fiber");
-      const metadata = {
-        food: text,
-        meal: inferMealType(lower),
-        calories,
-        estimated: false,
-        ...(protein !== null ? { protein } : {}),
-        ...(carbs !== null ? { carbs } : {}),
-        ...(fats !== null ? { fats } : {}),
-        ...(fiber !== null ? { fiber } : {}),
-      };
-      if (state.authenticated && authSession?.access_token) {
-        await createBackendEntry({
-          pluginId: "nutrition",
-          entryType: "log_food",
-          value: calories,
-          unit: "cal",
-          metadata,
-        });
-        addMessage(`Logged that meal at ${calories} calories. Your daily total is now ${state.nutrition.calories.toLocaleString()} calories.`, "assistant");
-        showToast("Meal added to Nutrition");
-        return;
-      }
-      state.nutrition.calories += calories;
-      state.nutrition.protein += protein || 0;
-      state.nutrition.carbs += carbs || 0;
-      state.nutrition.fats += fats || 0;
-      state.nutrition.fiber += fiber || 0;
-      addActivity({ plugin: "nutrition", title: `Logged ${metadata.meal.toLowerCase()}`, detail: `${metadata.meal} - ${calories} cal` });
-      saveState();
-      renderAll();
-      addMessage(`Logged that meal at ${calories} calories. Your daily total is now ${state.nutrition.calories.toLocaleString()} calories.`, "assistant");
-      showToast("Meal added to Nutrition");
-      return;
-    }
-
-    if (/(help|what can you do)/.test(lower)) {
-      addMessage("I can log meals, expenses, sleep, workouts, water, and mindful moments. I can also summarize your calories, spending, and sleep.", "assistant");
-      return;
-    }
-
-  addMessage("I can help with meals, expenses, sleep, workouts, water, and mindful moments. Ask for a summary or tell me what to log.", "assistant");
+  return handleRequest(text);
 }
 
 document.addEventListener("click", async (event) => {
-  const backendAction = event.target.closest("[data-backend-action]");
-  if (backendAction?.dataset.backendAction === "retry") {
-    try {
-      await loadRemoteAppState();
-      showToast("Backend data refreshed");
-    } catch (error) {
-      showBackendLoadError(error);
-    }
-    return;
-  }
-
-  const authAction = event.target.closest("[data-auth-action]");
-  if (authAction?.dataset.authAction === "sign-out") signOut();
-  if (authAction?.dataset.authAction === "start-setup") showAccountSetup();
-  if (authAction?.dataset.authAction === "back-to-login") hideAccountSetup();
-
   const viewButton = event.target.closest("[data-view]");
   if (viewButton) openView(viewButton.dataset.view);
 
@@ -2861,19 +1083,6 @@ document.addEventListener("click", async (event) => {
 
   const profileAction = event.target.closest("[data-profile-action]");
   if (profileAction) openProfileAction(profileAction.dataset.profileAction);
-
-  const assistantAction = event.target.closest("[data-assistant-action]");
-  if (assistantAction) {
-    if (assistantAction.dataset.assistantAction === "confirm") {
-      try {
-        await confirmAssistantPreview();
-      } catch (error) {
-        showToast(error.message || "Unable to save assistant action");
-      }
-    }
-    if (assistantAction.dataset.assistantAction === "edit") editAssistantPreview();
-    if (assistantAction.dataset.assistantAction === "cancel") cancelAssistantPreview();
-  }
 
   const modalAction = event.target.closest("[data-modal-action]");
   if (!modalAction) return;
@@ -2902,9 +1111,9 @@ document.addEventListener("click", async (event) => {
       eyebrow: "RESET DATA",
       title: "Start fresh?",
       body: `
-        <div class="modal-notice"><p>This clears your account timeline and restores the starter dashboard.</p></div>
+        <div class="modal-notice"><p>This clears your local timeline and restores the starter dashboard.</p></div>
         <div class="stacked-actions">
-          <button class="danger-button" data-modal-action="reset-account-data">Reset account data</button>
+          <button class="danger-button" data-modal-action="reset-account-data">Reset local data</button>
           <button class="secondary-button" data-modal-action="close">Keep my data</button>
         </div>
       `,
@@ -2920,21 +1129,6 @@ document.addEventListener("submit", async (event) => {
   const data = new FormData(form);
   let shouldOpenHome = false;
 
-  if (form.dataset.form === "assistant-preview") {
-    if (!pendingAssistantPreview?.entries?.length) {
-      closeModal();
-      showToast("No pending assistant action");
-      return;
-    }
-
-    pendingAssistantPreview.entries = pendingAssistantPreview.entries.map((entry, index) => editedAssistantEntry(entry, data, index));
-    updateAssistantPreviewSummary();
-    closeModal();
-    addMessage("I updated the pending action. Confirm it when it looks right.", "assistant");
-    showToast("Assistant preview updated");
-    return;
-  }
-
   if (form.dataset.form === "meal") {
     const calories = Number(data.get("calories"));
     const protein = Number(data.get("protein") || 0);
@@ -2942,18 +1136,6 @@ document.addEventListener("submit", async (event) => {
     const fats = Number(data.get("fats") || 0);
     const fiber = Number(data.get("fiber") || 0);
     const food = String(data.get("description") || "meal");
-    if (state.authenticated && authSession?.access_token) {
-      await createBackendEntry({
-        pluginId: "nutrition",
-        entryType: "log_food",
-        value: calories,
-        unit: "cal",
-        metadata: { food, meal: "Meal", calories, protein, carbs, fats, fiber, estimated: false },
-      });
-      showToast("Meal added to Nutrition");
-      openPlugin("nutrition");
-      return;
-    }
 
     state.nutrition.calories += calories;
     state.nutrition.protein += protein;
@@ -2969,18 +1151,6 @@ document.addEventListener("submit", async (event) => {
     const amount = Number(data.get("amount"));
     const category = String(data.get("category"));
     const note = String(data.get("note") || category);
-    if (state.authenticated && authSession?.access_token) {
-      await createBackendEntry({
-        pluginId: "finance",
-        entryType: "log_expense",
-        value: amount,
-        unit: "usd",
-        metadata: { category, note },
-      });
-      showToast("Expense added to Finance");
-      openPlugin("finance");
-      return;
-    }
 
     state.finance.spending += amount;
     addActivity({ plugin: "finance", title: `Added ${note}`, detail: `${category} - $${amount.toFixed(2)}` });
@@ -2991,18 +1161,6 @@ document.addEventListener("submit", async (event) => {
   if (form.dataset.form === "sleep") {
     const minutes = Number(data.get("hours")) * 60;
     const quality = String(data.get("quality"));
-    if (state.authenticated && authSession?.access_token) {
-      await createBackendEntry({
-        pluginId: "sleep",
-        entryType: "log_sleep",
-        value: minutes,
-        unit: "min",
-        metadata: { quality },
-      });
-      showToast("Sleep summary updated");
-      openPlugin("sleep");
-      return;
-    }
 
     state.sleep.minutes = minutes;
     state.sleep.quality = quality;
@@ -3016,16 +1174,6 @@ document.addEventListener("submit", async (event) => {
     const title = String(data.get("title"));
     const time = String(data.get("time"));
     const duration = Number(data.get("duration"));
-    if (state.authenticated && authSession?.access_token) {
-      await createBackendEntry({
-        pluginId: "workout",
-        entryType: "log_workout",
-        metadata: { exercise: title, title, plannedTime: time, duration, completed: false },
-      });
-      showToast("Workout plan updated");
-      openPlugin("workout");
-      return;
-    }
 
     state.workout.title = title;
     state.workout.time = time;
@@ -3037,7 +1185,7 @@ document.addEventListener("submit", async (event) => {
 
   if (form.dataset.form === "profile") {
     state.profile.name = String(data.get("name") || state.profile.name).trim() || state.profile.name;
-    await saveProfileSettings({ displayName: state.profile.name });
+    state.profile.email = String(data.get("email") || "").trim();
     closeModal();
     showToast("Profile updated");
   }
@@ -3057,10 +1205,6 @@ document.addEventListener("submit", async (event) => {
       hydrationGoal: tailored.hydrationGoal,
       weeklyWorkouts: tailored.weeklyWorkouts,
     };
-    await saveProfileSettings({
-      personal: state.profile.personal,
-      goals: state.profile.goals,
-    });
     closeModal();
     showToast("Personal data updated");
   }
@@ -3079,29 +1223,20 @@ document.addEventListener("submit", async (event) => {
     };
     state.profile.monthlyBudget = state.profile.goals.monthlyBudget;
     state.finance.budget = state.profile.monthlyBudget;
-    await saveProfileSettings({ goals: state.profile.goals });
     closeModal();
     showToast("Goals updated");
   }
 
   if (form.dataset.form === "account-setup") {
     applyAccountSetup(data);
-    hideAccountSetup();
-    if (authSession?.access_token) {
-      await saveProfileSettings();
-      closeModal();
-      shouldOpenHome = true;
-      showToast("Your plan is ready");
-    } else {
-      await signIn(state.profile.email);
-      showToast("Your plan is ready. Verify your sign-in code.");
-    }
+    closeModal();
+    shouldOpenHome = true;
+    showToast("Your plan is ready");
   }
 
   if (form.dataset.form === "notifications") {
     state.profile.notifications = data.has("notifications");
     state.profile.weeklySummary = data.has("weeklySummary");
-    await saveProfileSettings();
     closeModal();
     showToast("Notification settings saved");
   }
@@ -3111,7 +1246,6 @@ document.addEventListener("submit", async (event) => {
     state.profile.units = String(data.get("units") || state.profile.units);
     state.profile.assistantInsights = data.has("assistantInsights");
     state.profile.compactCards = data.has("compactCards");
-    await saveProfileSettings();
     closeModal();
     showToast("Dashboard preferences saved");
   }
@@ -3136,27 +1270,6 @@ activitySearch.addEventListener("input", () => {
   renderActivity();
 });
 
-loginForm.addEventListener("submit", async (event) => {
-  event.preventDefault();
-  const data = new FormData(loginForm);
-  try {
-    await signIn(String(data.get("email") || state.profile.email));
-  } catch (error) {
-    showToast(error.message || "Unable to send sign-in code");
-  }
-});
-
-otpForm?.addEventListener("submit", async (event) => {
-  event.preventDefault();
-  const data = new FormData(otpForm);
-  try {
-    await completeSignIn(String(data.get("code") || ""));
-    otpForm.reset();
-  } catch (error) {
-    showToast(error.message || "Unable to verify sign-in code");
-  }
-});
-
 document.querySelectorAll(".suggestion-chip").forEach((button) => {
   button.addEventListener("click", () => {
     processRequest(button.textContent).catch((error) => showToast(error.message || "Unable to process assistant request"));
@@ -3173,17 +1286,6 @@ document.getElementById("close-assistant").addEventListener("click", hideAssista
 document.getElementById("modal-close").addEventListener("click", closeModal);
 document.getElementById("week-summary-button").addEventListener("click", openWeekSummary);
 document.getElementById("clear-activity-button").addEventListener("click", () => {
-  if (state.authenticated && authSession?.access_token) {
-    openModal({
-      eyebrow: "ACTIVITY",
-      title: "Activity follows your entries",
-      body: `
-        <div class="modal-notice"><p>Timeline items are created from saved entries. Entry deletion support will handle activity cleanup from the backend.</p></div>
-        <button class="primary-button" data-modal-action="close">Done</button>
-      `,
-    });
-    return;
-  }
 
   openModal({
     eyebrow: "ACTIVITY",
@@ -3219,7 +1321,7 @@ micButton.addEventListener("click", () => {
 
   if (!SpeechRecognition) {
     micButton.classList.remove("listening");
-    input.placeholder = "Ask Speaklio anything...";
+    input.placeholder = "Ask Speaklio to log or summarize...";
     showToast("Voice input is unavailable in this browser.");
     return;
   }
@@ -3234,27 +1336,12 @@ micButton.addEventListener("click", () => {
   recognition.onerror = () => showToast("I could not hear that. Try typing your request.");
   recognition.onend = () => {
     micButton.classList.remove("listening");
-    input.placeholder = "Ask Speaklio anything...";
+    input.placeholder = "Ask Speaklio to log or summarize...";
   };
   recognition.start();
 });
 
 installStaticIcons();
 
-async function initializeApp() {
-  if (authSession?.access_token) setBackendLoading(true);
-  renderAll();
-  openView(state.currentView || "home");
-  if (!authSession?.access_token) return;
-
-  try {
-    await loadRemoteAppState();
-  } catch (error) {
-    state.authenticated = true;
-    saveState();
-    renderAll();
-    showBackendLoadError(error);
-  }
-}
-
-initializeApp();
+renderAll();
+openView(state.currentView || "home");

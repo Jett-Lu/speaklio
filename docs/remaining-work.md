@@ -1,3 +1,5 @@
+> Historical reference: this document describes the retired backend-connected prototype. The standalone frontend does not use these services. See the root README for current setup.
+
 # Remaining Work
 
 Scope: local full-product readiness, excluding hosted deployment/infrastructure and excluding the frontend rewrite.

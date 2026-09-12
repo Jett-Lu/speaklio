@@ -1,3 +1,5 @@
+> Historical reference: this document describes the retired backend-connected prototype. The standalone frontend does not use these services. See the root README for current setup.
+
 # Frontend Backend Integration Plan
 
 This plan audits the current static frontend and records the path to remove hardcoded prototype values so Speaklio works from persisted backend data.

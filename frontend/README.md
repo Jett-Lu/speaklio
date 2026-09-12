@@ -1,33 +1,27 @@
 # Speaklio Frontend
 
-This is the current Speaklio frontend. It is a mobile-first personal care dashboard showing how a voice-first AI assistant turns natural language into structured updates across modular plugins.
+A dependency-free, browser-local dashboard built with HTML, CSS, and JavaScript ES modules.
 
 ## Preview
 
-Open `index.html` directly or run the local static server from the repository root:
+From the repository root:
 
-```powershell
+```sh
 node frontend/server.js
 ```
 
-Then visit `http://localhost:4173`.
+Open [the local preview](http://127.0.0.1:4173). Do not open `index.html` directly. No login or runtime configuration file is needed.
 
-You can also run the server from this directory:
+## Development
 
-```powershell
-node server.js
-```
+- Keep DOM and form wiring in `app.js`.
+- Keep persistence and defaults in `state.mjs`.
+- Keep plugin definitions in `catalog.mjs` and formatting in `format.mjs`.
+- Keep command matching in `assistant.mjs`; UI callbacks are passed into `createAssistant`.
+- Use `escapeHtml` for user content interpolated into HTML.
+- Chat messages and activity searches already update only their relevant sections; use focused rendering for similar interactions.
+- When adding an asset, add it to the explicit public asset list in `server.js`.
 
-## Product Surfaces
+Run `node --test frontend/tests/*.test.*` from the root, then follow the [smoke checklist](../docs/frontend-smoke-checklist.md).
 
-- Responsive daily dashboard for nutrition, finance, sleep, and workouts.
-- Plugin store with working add and remove interactions.
-- Detail sheets for logging meals, expenses, sleep, workouts, water, and mindful moments.
-- Activity timeline with plugin filters and history controls.
-- Assistant requests with optional browser speech recognition.
-- Browser persistence, data export, profile editing, and preferences.
-- Phone-friendly bottom navigation and assistant sheet.
-
-## Notes
-
-- Keep new frontend assumptions lightweight until the backend and product model settle.
+See the [root README](../README.md) for supported commands, storage behavior, and prototype limitations.

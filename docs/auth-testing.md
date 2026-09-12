@@ -1,3 +1,5 @@
+> Historical reference: this document describes the retired backend-connected prototype. The standalone frontend does not use these services. See the root README for current setup.
+
 # Manual Auth Testing
 
 These notes cover local manual testing for the current Supabase + Express auth flow.

@@ -1,3 +1,5 @@
+> Historical reference: this document describes the retired backend-connected prototype. The standalone frontend does not use these services. See the root README for current setup.
+
 # Speaklio Backend
 
 This is the Speaklio backend service. It is an Express + TypeScript API for workflows that should not run directly in the browser or a future mobile app.

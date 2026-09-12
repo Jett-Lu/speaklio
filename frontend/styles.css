@@ -51,131 +51,23 @@ button {
   display: none !important;
 }
 
-.auth-screen {
-  display: none;
-  min-height: 100vh;
-  place-items: center;
-  padding: 18px;
-}
 
-body.signed-out .auth-screen {
-  display: grid;
-}
 
-body.signed-out .app-shell {
-  display: none;
-}
 
-body.remote-loading .main-content {
-  cursor: progress;
-}
 
-body.remote-loading .page-heading,
-body.remote-loading .dashboard-grid,
-body.remote-loading .activity-layout,
-body.remote-loading .plugin-grid,
-body.remote-loading .profile-card,
-body.remote-loading .profile-overview-grid {
-  opacity: 0.82;
-}
 
-.auth-card {
-  display: grid;
-  width: min(430px, 100%);
-  min-width: 0;
-  gap: 22px;
-  padding: 34px;
-  border: 1px solid var(--line);
-  border-radius: 16px;
-  background: var(--panel);
-  box-shadow: var(--shadow);
-}
 
-.auth-brand {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  color: var(--ink);
-  font-family: var(--font-heading);
-  font-size: 21px;
-  font-weight: 800;
-  letter-spacing: -0.7px;
-}
 
-.auth-copy h1 {
-  max-width: 360px;
-  margin: 6px 0 9px;
-  font-family: var(--font-heading);
-  font-size: 30px;
-  letter-spacing: -1.4px;
-  line-height: 1.14;
-}
 
-.auth-copy p:last-child {
-  max-width: 360px;
-  margin: 0;
-  color: var(--ink-soft);
-  font-size: 14px;
-  line-height: 1.55;
-}
 
-.auth-form {
-  display: grid;
-  gap: 10px;
-}
 
-.auth-form label {
-  color: var(--ink-soft);
-  font-size: 11px;
-  font-weight: 800;
-}
 
-.auth-form input {
-  width: 100%;
-  min-width: 0;
-  padding: 11px 12px;
-  color: var(--ink);
-  border: 1px solid var(--line);
-  border-radius: 9px;
-  outline: 0;
-  background: var(--panel-soft);
-}
 
-.auth-form input:focus {
-  border-color: #a9c7bb;
-  box-shadow: 0 0 0 3px rgba(72, 122, 103, 0.1);
-}
 
-.auth-actions {
-  display: grid;
-  justify-items: center;
-  padding-top: 2px;
-}
 
-.otp-panel {
-  display: grid;
-  gap: 12px;
-  padding: 14px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--panel-soft);
-}
 
-.otp-panel p {
-  margin: 0;
-  color: var(--ink-soft);
-  font-size: 13px;
-  line-height: 1.45;
-}
 
-.account-setup-panel {
-  padding-top: 18px;
-  border-top: 1px solid var(--line);
-}
 
-.account-setup-form {
-  margin-top: 0;
-}
 
 .app-shell {
   display: grid;
@@ -369,43 +261,11 @@ body.remote-loading .profile-overview-grid {
   padding: 35px 36px 44px;
 }
 
-.backend-status {
-  display: flex;
-  max-width: 950px;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  margin: 0 auto 18px;
-  padding: 12px 14px;
-  color: #6e4e15;
-  border: 1px solid #e6cf9a;
-  border-radius: 8px;
-  background: #fff8e7;
-}
 
-.backend-status[hidden] {
-  display: none;
-}
 
-.backend-status div {
-  display: grid;
-  gap: 3px;
-}
 
-.backend-status strong {
-  color: #593d0d;
-  font-size: 13px;
-}
 
-.backend-status span {
-  font-size: 12px;
-  line-height: 1.35;
-}
 
-.backend-status .secondary-button {
-  width: auto;
-  flex: 0 0 auto;
-}
 
 .mobile-header,
 .bottom-nav,
@@ -1156,54 +1016,12 @@ body.remote-loading .profile-overview-grid {
   box-shadow: none;
 }
 
-.assistant-preview {
-  display: grid;
-  gap: 8px;
-  margin-top: 12px;
-  padding: 11px;
-  border: 1px solid #dce9e3;
-  border-radius: 10px;
-  background: var(--green-soft);
-}
 
-.assistant-preview-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
 
-.assistant-preview-header span {
-  color: var(--green);
-  font-size: 10px;
-  font-weight: 800;
-}
 
-.assistant-preview strong {
-  color: var(--green-dark);
-  font-family: var(--font-heading);
-  font-size: 13px;
-  letter-spacing: -0.3px;
-}
 
-.assistant-preview p {
-  margin: 0;
-  color: var(--ink-soft);
-  font-size: 11px;
-  line-height: 1.45;
-}
 
-.assistant-preview-actions {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 7px;
-}
 
-.assistant-preview-actions .primary-button,
-.assistant-preview-actions .secondary-button {
-  padding: 7px 8px;
-  font-size: 10px;
-}
 
 .chat-stream {
   display: flex;
@@ -2302,9 +2120,7 @@ body.remote-loading .profile-overview-grid {
 }
 
 @media (max-width: 1180px) {
-  .auth-screen {
-    padding: 22px;
-  }
+
 
   .app-shell {
     grid-template-columns: 196px minmax(0, 1fr) 310px;
@@ -2469,25 +2285,12 @@ body.remote-loading .profile-overview-grid {
     text-align: center;
   }
 
-  .assistant-preview {
-    margin-top: 10px;
-  }
 }
 
 @media (max-width: 620px) {
-  .auth-screen {
-    padding: 12px;
-  }
 
-  .auth-card {
-    border-radius: 13px;
-    gap: 20px;
-    padding: 22px;
-  }
 
-  .auth-copy h1 {
-    font-size: 28px;
-  }
+
 
   .main-content {
     padding: 75px 13px 140px;
@@ -2683,4 +2486,14 @@ body.remote-loading .profile-overview-grid {
   .quick-form {
     padding: 11px;
   }
+}
+
+.local-mode-note {
+  color: var(--ink-soft);
+  font-size: 12px;
+  line-height: 1.5;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-soft);
 }

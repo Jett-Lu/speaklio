@@ -1,133 +1,59 @@
 # Speaklio
 
-Speaklio is a voice-first personal care dashboard for turning natural language into structured updates across modular tracking areas.
+Speaklio is a browser-local personal tracking dashboard for meals, expenses, sleep, workouts, hydration, and mindful moments. Use the plugin forms or type supported logging requests into the local assistant.
 
-<img width="400" height="865" alt="Recording_2026-06-01_203610" src="https://github.com/user-attachments/assets/6263205d-68af-460b-b2ff-9d56726a2dec" />
+## Run locally
 
-This repository is organized as a small capstone monorepo. The current frontend is a static prototype, the backend is an Express + TypeScript scaffold, and Supabase provides auth/database infrastructure.
+Install Node.js 24 or newer, then run from the repository root:
 
-Use Node.js 24 or newer for local development.
-
-## Requirements
-
-- Node.js 24 or newer.
-- Docker Desktop for local Supabase.
-- Supabase CLI, installed through the root `package.json`.
-
-## Repository Structure
-
-- `frontend/` - current static dashboard prototype.
-- `backend/` - Express + TypeScript API service.
-- `supabase/` - local Supabase config, migrations, and seed data.
-- `local_ai/` - local Ollama parser setup for AI-assisted logging.
-- `docs/` - architecture notes, testing guides, and temporary planning docs.
-
-## First-Time Setup
-
-Install root and backend dependencies:
-
-```powershell
-npm install
-npm install --prefix backend
+```sh
+node frontend/server.js
 ```
 
-Start local Supabase:
+Open [Speaklio](http://127.0.0.1:4173). No package installation, account, API keys, Docker, Supabase, or AI model is required for the frontend.
 
-```powershell
-npm run supabase:start
-npm run supabase:db:reset
+Use the server rather than opening `index.html` directly: the frontend uses ES modules. You can also run `npm start`. Set `PORT` to use another port; the preview binds to this computer only.
+
+## What works
+
+- Add or remove tracking plugins from your dashboard.
+- Log meals, expenses, sleep, workouts, water, and mindful moments.
+- Edit your profile, personal details, goals, and dashboard preferences.
+- Search and filter activity, clear the timeline, export JSON, or reset local data.
+- Type commands such as `I drank 500 ml of water`, `I spent 12 on lunch`, or `I slept 8 hours` after adding the relevant plugin.
+- Use browser speech recognition when available. Typing works without microphone access.
+
+The assistant matches supported phrases; it does not call an LLM. Recognized logging requests save immediately. Use the forms when you need precise values.
+
+## Data and limitations
+
+Data stays in localStorage for this browser and origin. A different browser, hostname, or port has separate data. Clearing browser storage removes it. Export important data before clearing storage or changing origins; JSON import is not implemented.
+
+This is a local prototype, not a complete historical tracking system. Dashboard counters persist until reset; they do not automatically roll over at day/week/month boundaries. Individual entry editing/deletion and assistant corrections are not available. Clearing the timeline does not change dashboard totals.
+
+Apple Health/Watch sync and camera nutrition recognition are placeholders. Notification switches store preferences but do not send notifications. Some unit/timezone preferences are stored without changing all displayed values. Voice recognition may use the browser provider's service; Google Fonts also makes external requests. Core typed logging does not require a backend.
+
+## Code layout
+
+| File | Responsibility |
+| --- | --- |
+| `frontend/index.html` / `styles.css` | Page structure and responsive styling |
+| `frontend/app.js` | DOM rendering, forms, navigation, and event wiring |
+| `frontend/state.mjs` | Defaults, browser persistence, export shape, and reset |
+| `frontend/catalog.mjs` | Plugin definitions, icons, and placeholder integrations |
+| `frontend/format.mjs` | Formatting and profile goal helpers |
+| `frontend/assistant.mjs` | Local command matching and dashboard answers |
+| `frontend/server.js` | Dependency-free local static preview |
+| `frontend/tests/` | Node regression tests |
+
+## Check changes
+
+```sh
+node --test frontend/tests/*.test.*
 ```
 
-Create a local `.env` from `.env.example`, then fill in Supabase values from:
+Follow the [frontend smoke checklist](docs/frontend-smoke-checklist.md) after changing interactive flows.
 
-```powershell
-npm run supabase:status
-```
+## Historical backend work
 
-## Project Areas
-
-### Frontend
-
-The current frontend is a mobile-first static prototype using plain HTML, CSS, and JavaScript.
-
-See `frontend/README.md` for preview instructions and feature notes.
-
-Useful command:
-
-```powershell
-npm run frontend:dev
-```
-
-### Backend
-
-The backend is an Express + TypeScript service for privileged workflows such as AI/LLM requests, account deletion, plugin settings, and operations that require secret keys.
-
-Current backend routes include health checks, profile routes, account deletion, plugin settings, authenticated metric entry CRUD, activity and dashboard read models, integration status metadata, and local AI parse/preview/confirm endpoints.
-
-Useful commands:
-
-```powershell
-npm run backend:dev
-npm run backend:typecheck
-npm run backend:build
-```
-
-See `backend/README.md` for details.
-
-Auth docs:
-
-- `docs/auth-architecture.md`
-- `docs/auth-testing.md`
-- `docs/backend-technical-decisions.md`
-- `docs/remaining-work.md`
-
-## Current Planning Assumptions
-
-- Start with personal tracking.
-- Use Supabase for auth and database.
-- Use a small Express + TypeScript backend for secrets, AI/LLM workflows, account deletion, and other privileged operations.
-- Keep raw audio transient for the initial LLM query flow.
-- Keep the frontend/mobile choice flexible.
-
-See `docs/backend-technical-decisions.md` and `docs/remaining-work.md` for current backend planning notes.
-
-## Local Supabase
-
-Useful commands:
-
-```powershell
-npm run supabase:start
-npm run supabase:status
-npm run supabase:psql
-npm run supabase:db:reset
-npm run supabase:stop
-```
-
-Schema migrations live in `supabase/migrations/`, and default plugin data lives in `supabase/seed.sql`.
-
-The `supabase:psql` script opens `psql` inside the local Supabase Postgres container, so a separate local PostgreSQL client install is not required.
-
-See `supabase/README.md` for migration and seed notes.
-
-## Cloud Supabase
-
-This repo has been linked to the shared Supabase cloud project. If a teammate needs to link their local checkout:
-
-```powershell
-npx supabase login
-npx supabase link --project-ref <project-ref>
-```
-
-After linking, push migrations and seed default data:
-
-```powershell
-npm run supabase:db:push
-npm run supabase:seed:remote
-```
-
-## Verification
-
-```powershell
-npm run backend:typecheck
-npm run backend:build
-```
+`backend/`, `supabase/`, `local_ai/`, and their architecture/setup notes remain as historical reference. They are not used by the standalone frontend. Their services and cloud configuration have not been verified, and their old root npm scripts are no longer part of the active setup. See the [documentation index](docs/README.md).
